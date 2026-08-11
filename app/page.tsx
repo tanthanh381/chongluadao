@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable @next/next/no-img-element -- this component also ships through a plain Vite/GitHub Pages build */
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Difficulty, knowledgeCards, scenarios } from "./data";
 
 type Result = { scenarioId: number; correct: boolean; choiceIndex: number };
 type View = "game" | "knowledge" | "stats" | "evidence";
+type StoredProgress = {
+  balance: number;
+  awareness: number;
+  results: Result[];
+  dark: boolean;
+  playerName: string;
+};
 
 const money = new Intl.NumberFormat("vi-VN");
 const difficulties: Array<"Tất cả" | Difficulty> = ["Tất cả", "Dễ", "Trung bình", "Khó", "Rất khó"];
@@ -18,6 +27,116 @@ const difficultyTone: Record<Difficulty, string> = {
 
 function BadgeIcon({ children }: { children: React.ReactNode }) {
   return <span className="badge-icon" aria-hidden="true">{children}</span>;
+}
+
+function readStoredProgress(): StoredProgress | null {
+  try {
+    const raw = localStorage.getItem("khien-so-progress");
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as Record<string, unknown>;
+    const results = Array.isArray(saved.results)
+      ? saved.results.filter((result): result is Result => {
+          if (!result || typeof result !== "object") return false;
+          const candidate = result as Record<string, unknown>;
+          return Number.isInteger(candidate.scenarioId)
+            && Number(candidate.scenarioId) >= 1
+            && Number(candidate.scenarioId) <= scenarios.length
+            && typeof candidate.correct === "boolean"
+            && Number.isInteger(candidate.choiceIndex)
+            && Number(candidate.choiceIndex) >= 0
+            && Number(candidate.choiceIndex) <= 2;
+        })
+      : [];
+
+    return {
+      balance: typeof saved.balance === "number" && Number.isFinite(saved.balance)
+        ? Math.max(0, Math.min(300_000_000, saved.balance))
+        : 300_000_000,
+      awareness: typeof saved.awareness === "number" && Number.isFinite(saved.awareness)
+        ? Math.max(0, Math.min(100, saved.awareness))
+        : 100,
+      results,
+      dark: saved.dark === true,
+      playerName: typeof saved.playerName === "string" && saved.playerName.trim()
+        ? saved.playerName.trim().slice(0, 32)
+        : "Người chơi ẩn danh",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function Modal({
+  open,
+  onClose,
+  labelledBy,
+  className = "",
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  labelledBy: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusableSelector = "button, input, select, textarea, a[href], [tabindex]:not([tabindex='-1'])";
+    const focusTimer = window.setTimeout(() => {
+      dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
+    }, 0);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter((element) => !element.hasAttribute("disabled"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus.current?.focus();
+    };
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="modal-layer">
+      <button className="modal-backdrop" aria-label="Đóng hộp thoại" onClick={onClose} />
+      <section ref={dialogRef} className={`modal ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
+        {children}
+      </section>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -36,18 +155,18 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem("khien-so-progress");
-    if (raw) {
-      try {
-        const saved = JSON.parse(raw);
+    const timer = window.setTimeout(() => {
+      const saved = readStoredProgress();
+      if (saved) {
         setBalance(saved.balance ?? 300_000_000);
         setAwareness(saved.awareness ?? 100);
         setResults(saved.results ?? []);
         setDark(saved.dark ?? false);
         setPlayerName(saved.playerName ?? "Người chơi ẩn danh");
-      } catch {}
-    }
-    setHydrated(true);
+      }
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -112,6 +231,11 @@ export default function Home() {
     setView("game");
   }
 
+  function closeProfile() {
+    setPlayerName((value) => value.trim() || "Người chơi ẩn danh");
+    setProfileOpen(false);
+  }
+
   function nextScenario() {
     const remaining = scenarios.find((item) => !completedIds.has(item.id));
     chooseScenario(remaining?.id ?? scenarios[0].id);
@@ -129,13 +253,13 @@ export default function Home() {
           <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>PHÒNG BẢO MẬT</small></span>
         </button>
         <nav aria-label="Điều hướng chính">
-          <button className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
-          <button className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
-          <button className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
+          <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
+          <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
+          <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
         </nav>
         <div className="top-actions">
-          <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
-          <button className="profile-button" onClick={() => setProfileOpen(true)}><span>{playerName.slice(0, 1).toUpperCase()}</span>{playerName}</button>
+          <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
+          <button className="profile-button" onClick={() => setProfileOpen(true)}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
         </div>
       </header>
 
@@ -148,11 +272,11 @@ export default function Home() {
             </div>
             <div className="search-box"><span>⌕</span><input aria-label="Tìm kịch bản" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo tên, kênh..." /></div>
             <div className="difficulty-filter" aria-label="Lọc độ khó">
-              {difficulties.map((item) => <button key={item} className={difficulty === item ? "active" : ""} onClick={() => setDifficulty(item)}>{item}</button>)}
+              {difficulties.map((item) => <button key={item} aria-pressed={difficulty === item} className={difficulty === item ? "active" : ""} onClick={() => setDifficulty(item)}>{item}</button>)}
             </div>
             <div className="scenario-list">
               {filtered.map((item) => (
-                <button key={item.id} onClick={() => chooseScenario(item.id)} className={`scenario-item ${selected.id === item.id ? "selected" : ""}`}>
+                <button key={item.id} aria-pressed={selected.id === item.id} onClick={() => chooseScenario(item.id)} className={`scenario-item ${selected.id === item.id ? "selected" : ""}`}>
                   <span className={`scenario-number ${safeIds.has(item.id) ? "done" : ""}`}>{safeIds.has(item.id) ? "✓" : String(item.id).padStart(2, "0")}</span>
                   <span className="scenario-copy"><strong>{item.title}</strong><small>{item.channel} · {item.category}</small></span>
                   <span className={`difficulty-dot ${difficultyTone[item.difficulty]}`} title={item.difficulty}></span>
@@ -194,7 +318,7 @@ export default function Home() {
                   })}
                 </div>
                 {selectedAnswer !== null && (
-                  <div className={`feedback ${selected.choices[selectedAnswer].correct ? "success" : "danger"}`}>
+                  <div role="status" aria-live="polite" className={`feedback ${selected.choices[selectedAnswer].correct ? "success" : "danger"}`}>
                     <div><strong>{selected.choices[selectedAnswer].correct ? "Lựa chọn an toàn" : "Bạn đã mắc bẫy"}</strong><p>{selected.choices[selectedAnswer].feedback}</p><small>Mẹo ghi nhớ: {selected.tip}</small></div>
                     <button onClick={nextScenario}>Kịch bản tiếp theo →</button>
                   </div>
@@ -249,9 +373,9 @@ export default function Home() {
 
       <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>PHÒNG BẢO MẬT</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
-      {guide && <div className="modal-backdrop" role="presentation" onMouseDown={() => setGuide(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></section></div>}
+      <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 
-      {profileOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setProfileOpen(false)}><section className="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setProfileOpen(false)}>×</button><span className="eyebrow">HỒ SƠ CỤC BỘ</span><h2 id="profile-title">Tên hiển thị của bạn</h2><p>Không cần email hay số điện thoại. Tên này chỉ được lưu trên thiết bị.</p><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} /><button className="primary-button" onClick={() => setProfileOpen(false)}>Lưu tên</button></section></div>}
+      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">HỒ SƠ CỤC BỘ</span><h2 id="profile-title">Tên hiển thị của bạn</h2><p>Không cần email hay số điện thoại. Tên này chỉ được lưu trên thiết bị.</p><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") closeProfile(); }} /><button className="primary-button" onClick={closeProfile}>Lưu tên</button></Modal>
     </main>
   );
 }

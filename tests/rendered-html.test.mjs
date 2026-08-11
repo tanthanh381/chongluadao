@@ -41,8 +41,12 @@ test("ships product metadata and social artwork", async () => {
   assert.match(layout, /lang="vi"/);
   assert.match(page, /localStorage/);
   assert.match(page, /KHIÊN SỐ/);
+  assert.match(page, /event\.key === "Escape"/);
+  assert.match(page, /aria-pressed/);
+  assert.match(page, /role="status"/);
+  assert.match(page, /readStoredProgress/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));
-  await assert.rejects(access(new URL("../app\/_sites-preview", root)));
+  await assert.rejects(access(new URL("../app/_sites-preview", root)));
 });
