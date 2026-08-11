@@ -124,7 +124,7 @@ export default function Home() {
     <main className={dark ? "app dark" : "app"}>
       <header className="topbar">
         <button className="brand" onClick={() => setView("game")} aria-label="HDBank Phòng Bảo mật — về màn chơi">
-          <img className="hdbank-logo" src="/hdbank-logo.png" alt="HDBank" />
+          <img className="hdbank-logo" src="hdbank-logo.png" alt="HDBank" />
           <span className="brand-divider" aria-hidden="true" />
           <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>PHÒNG BẢO MẬT</small></span>
         </button>
@@ -247,7 +247,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer><div className="footer-brand"><img src="/hdbank-logo.png" alt="HDBank"/><span><b>PHÒNG BẢO MẬT</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>PHÒNG BẢO MẬT</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {guide && <div className="modal-backdrop" role="presentation" onMouseDown={() => setGuide(false)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></section></div>}
 
