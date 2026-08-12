@@ -31,6 +31,11 @@ type LossNotice = {
 
 const ACCOUNTS_KEY = "khien-so-accounts";
 const SESSION_KEY = "khien-so-session";
+const LEGACY_PROGRESS_KEY = "khien-so-progress";
+
+function progressKey(username: string | null) {
+  return `khien-so-progress:${username ?? "guest"}`;
+}
 
 const money = new Intl.NumberFormat("vi-VN");
 const difficulties: Array<"Tất cả" | Difficulty> = ["Tất cả", "Dễ", "Trung bình", "Khó", "Rất khó"];
@@ -46,9 +51,9 @@ function BadgeIcon({ children }: { children: React.ReactNode }) {
   return <span className="badge-icon" aria-hidden="true">{children}</span>;
 }
 
-function readStoredProgress(): StoredProgress | null {
+function readStoredProgress(key: string): StoredProgress | null {
   try {
-    const raw = localStorage.getItem("khien-so-progress");
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const saved = JSON.parse(raw) as Record<string, unknown>;
     const results = Array.isArray(saved.results)
@@ -222,19 +227,31 @@ export default function Home() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const saved = readStoredProgress();
+      const storedAccounts = readLocalAccounts();
+      const storedSession = localStorage.getItem(SESSION_KEY);
+      const validSession = storedSession && storedAccounts.some((account) => account.username === storedSession)
+        ? storedSession
+        : null;
+      let saved = readStoredProgress(progressKey(validSession));
+      if (!validSession && !saved) {
+        saved = readStoredProgress(LEGACY_PROGRESS_KEY);
+        if (saved) localStorage.setItem(progressKey(null), JSON.stringify(saved));
+      }
       if (saved) {
         setBalance(saved.balance ?? 300_000_000);
         setAwareness(saved.awareness ?? 100);
         setResults(saved.results ?? []);
         setDark(saved.dark ?? false);
-        setPlayerName(saved.playerName ?? "Người chơi ẩn danh");
+        const accountName = validSession
+          ? storedAccounts.find((account) => account.username === validSession)?.displayName
+          : null;
+        setPlayerName(accountName ?? saved.playerName ?? "Người chơi ẩn danh");
+      } else if (validSession) {
+        setPlayerName(storedAccounts.find((account) => account.username === validSession)?.displayName ?? "Người chơi ẩn danh");
       }
-      const storedAccounts = readLocalAccounts();
-      const storedSession = localStorage.getItem(SESSION_KEY);
       setAccounts(storedAccounts);
-      if (storedSession && storedAccounts.some((account) => account.username === storedSession)) {
-        setSessionUsername(storedSession);
+      if (validSession) {
+        setSessionUsername(validSession);
       } else {
         localStorage.removeItem(SESSION_KEY);
       }
@@ -245,8 +262,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem("khien-so-progress", JSON.stringify({ balance, awareness, results, dark, playerName }));
-  }, [balance, awareness, results, dark, playerName, hydrated]);
+    localStorage.setItem(progressKey(sessionUsername), JSON.stringify({ balance, awareness, results, dark, playerName }));
+  }, [balance, awareness, results, dark, playerName, hydrated, sessionUsername]);
 
   const selected = scenarios.find((item) => item.id === selectedId) ?? scenarios[0];
   const completedIds = new Set(results.map((result) => result.scenarioId));
@@ -315,19 +332,44 @@ export default function Home() {
     setView("game");
   }
 
-  function openAuth(mode: AuthMode) {
-    setAuthMode(mode);
-    setAuthError("");
+  function loadProgressForSession(username: string | null, displayName = "Người chơi ẩn danh") {
+    const saved = readStoredProgress(progressKey(username));
+    setBalance(saved?.balance ?? 300_000_000);
+    setAwareness(saved?.awareness ?? 100);
+    setResults(saved?.results ?? []);
+    setDark(saved?.dark ?? false);
+    setPlayerName(displayName);
+    setAnswer(null);
+    setLossNotice(null);
+    setSelectedId(1);
+    setDifficulty("Tất cả");
+    setQuery("");
+    setView("game");
+  }
+
+  function resetAuthForm() {
+    setAuthUsername("");
+    setAuthDisplayName("");
     setAuthPassword("");
     setAuthConfirmPassword("");
+    setAuthError("");
+    setAuthBusy(false);
+  }
+
+  function closeAuth() {
+    resetAuthForm();
+    setAuthOpen(false);
+  }
+
+  function openAuth(mode: AuthMode) {
+    resetAuthForm();
+    setAuthMode(mode);
     setAuthOpen(true);
   }
 
   function switchAuthMode(mode: AuthMode) {
+    resetAuthForm();
     setAuthMode(mode);
-    setAuthError("");
-    setAuthPassword("");
-    setAuthConfirmPassword("");
   }
 
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
@@ -374,7 +416,7 @@ export default function Home() {
         localStorage.setItem(SESSION_KEY, username);
         setAccounts(nextAccounts);
         setSessionUsername(username);
-        setPlayerName(displayName);
+        loadProgressForSession(username, displayName);
       } else {
         const account = accounts.find((item) => item.username === username);
         if (!account || await hashPassword(authPassword, account.salt) !== account.passwordHash) {
@@ -383,13 +425,9 @@ export default function Home() {
         }
         localStorage.setItem(SESSION_KEY, account.username);
         setSessionUsername(account.username);
-        setPlayerName(account.displayName);
+        loadProgressForSession(account.username, account.displayName);
       }
-      setAuthOpen(false);
-      setAuthUsername("");
-      setAuthDisplayName("");
-      setAuthPassword("");
-      setAuthConfirmPassword("");
+      closeAuth();
     } catch {
       setAuthError("Không thể xử lý đăng nhập trên trình duyệt này. Vui lòng thử lại.");
     } finally {
@@ -413,7 +451,7 @@ export default function Home() {
   function logout() {
     localStorage.removeItem(SESSION_KEY);
     setSessionUsername(null);
-    setPlayerName("Người chơi ẩn danh");
+    loadProgressForSession(null);
     setProfileOpen(false);
   }
 
@@ -578,8 +616,8 @@ export default function Home() {
 
       <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 
-      <Modal open={authOpen} onClose={() => setAuthOpen(false)} labelledBy="auth-title" className="auth-modal">
-        <button className="modal-close" aria-label="Đóng đăng nhập" onClick={() => setAuthOpen(false)}>×</button>
+      <Modal open={authOpen} onClose={closeAuth} labelledBy="auth-title" className="auth-modal">
+        <button className="modal-close" aria-label="Đóng đăng nhập" onClick={closeAuth}>×</button>
         <span className="modal-symbol">H</span>
         <span className="eyebrow">KHIÊN SỐ · TÀI KHOẢN THIẾT BỊ</span>
         <div className="auth-tabs" aria-label="Chọn hình thức tài khoản">
