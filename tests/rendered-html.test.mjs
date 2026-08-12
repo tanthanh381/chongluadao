@@ -26,6 +26,8 @@ test("server renders the Khiên Số experience", async () => {
   assert.match(html, /THƯ VIỆN TÌNH HUỐNG/);
   assert.match(html, /Cuộc gọi ‘điều tra khẩn cấp’/);
   assert.match(html, /Mô phỏng/);
+  assert.match(html, /Đăng nhập/);
+  assert.match(html, /Đăng ký/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
@@ -45,6 +47,10 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /aria-pressed/);
   assert.match(page, /role="status"/);
   assert.match(page, /readStoredProgress/);
+  assert.match(page, /PBKDF2/);
+  assert.match(page, /khien-so-accounts/);
+  assert.match(page, /khien-so-session/);
+  assert.match(page, /Đăng xuất/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));

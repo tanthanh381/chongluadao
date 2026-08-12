@@ -14,6 +14,17 @@ type StoredProgress = {
   dark: boolean;
   playerName: string;
 };
+type LocalAccount = {
+  username: string;
+  displayName: string;
+  salt: string;
+  passwordHash: string;
+  createdAt: string;
+};
+type AuthMode = "login" | "register";
+
+const ACCOUNTS_KEY = "khien-so-accounts";
+const SESSION_KEY = "khien-so-session";
 
 const money = new Intl.NumberFormat("vi-VN");
 const difficulties: Array<"Tất cả" | Difficulty> = ["Tất cả", "Dễ", "Trung bình", "Khó", "Rất khó"];
@@ -64,6 +75,44 @@ function readStoredProgress(): StoredProgress | null {
   } catch {
     return null;
   }
+}
+
+function readLocalAccounts(): LocalAccount[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((account): account is LocalAccount => {
+      if (!account || typeof account !== "object") return false;
+      const item = account as Record<string, unknown>;
+      return typeof item.username === "string"
+        && typeof item.displayName === "string"
+        && typeof item.salt === "string"
+        && typeof item.passwordHash === "string"
+        && typeof item.createdAt === "string";
+    });
+  } catch {
+    return [];
+  }
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function base64ToBytes(value: string) {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+}
+
+async function hashPassword(password: string, salt: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({
+    name: "PBKDF2",
+    salt: base64ToBytes(salt),
+    iterations: 120_000,
+    hash: "SHA-256",
+  }, key, 256);
+  return bytesToBase64(new Uint8Array(bits));
 }
 
 function Modal({
@@ -151,6 +200,16 @@ export default function Home() {
   const [dark, setDark] = useState(false);
   const [guide, setGuide] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authDisplayName, setAuthDisplayName] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [accounts, setAccounts] = useState<LocalAccount[]>([]);
+  const [sessionUsername, setSessionUsername] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("Người chơi ẩn danh");
   const [hydrated, setHydrated] = useState(false);
 
@@ -163,6 +222,14 @@ export default function Home() {
         setResults(saved.results ?? []);
         setDark(saved.dark ?? false);
         setPlayerName(saved.playerName ?? "Người chơi ẩn danh");
+      }
+      const storedAccounts = readLocalAccounts();
+      const storedSession = localStorage.getItem(SESSION_KEY);
+      setAccounts(storedAccounts);
+      if (storedSession && storedAccounts.some((account) => account.username === storedSession)) {
+        setSessionUsername(storedSession);
+      } else {
+        localStorage.removeItem(SESSION_KEY);
       }
       setHydrated(true);
     }, 0);
@@ -179,6 +246,7 @@ export default function Home() {
   const safeIds = new Set(results.filter((result) => result.correct).map((result) => result.scenarioId));
   const evidence = scenarios.filter((item) => safeIds.has(item.id));
   const score = results.reduce((total, result) => total + (result.correct ? 120 : 20), 0);
+  const activeAccount = accounts.find((account) => account.username === sessionUsername) ?? null;
 
   const filtered = useMemo(() => scenarios.filter((item) => {
     const matchesDifficulty = difficulty === "Tất cả" || item.difficulty === difficulty;
@@ -231,8 +299,105 @@ export default function Home() {
     setView("game");
   }
 
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthError("");
+    setAuthPassword("");
+    setAuthConfirmPassword("");
+    setAuthOpen(true);
+  }
+
+  function switchAuthMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthError("");
+    setAuthPassword("");
+    setAuthConfirmPassword("");
+  }
+
+  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const username = authUsername.trim().toLowerCase();
+    setAuthError("");
+
+    if (!/^[a-z0-9._-]{3,24}$/.test(username)) {
+      setAuthError("Tên đăng nhập cần 3–24 ký tự: chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới.");
+      return;
+    }
+    if (authPassword.length < 8) {
+      setAuthError("Mật khẩu cần ít nhất 8 ký tự.");
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      if (authMode === "register") {
+        const displayName = authDisplayName.trim();
+        if (displayName.length < 2 || displayName.length > 32) {
+          setAuthError("Tên hiển thị cần từ 2 đến 32 ký tự.");
+          return;
+        }
+        if (authPassword !== authConfirmPassword) {
+          setAuthError("Mật khẩu xác nhận chưa khớp.");
+          return;
+        }
+        if (accounts.some((account) => account.username === username)) {
+          setAuthError("Tên đăng nhập này đã tồn tại trên thiết bị.");
+          return;
+        }
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = bytesToBase64(saltBytes);
+        const passwordHash = await hashPassword(authPassword, salt);
+        const nextAccounts = [...accounts, {
+          username,
+          displayName,
+          salt,
+          passwordHash,
+          createdAt: new Date().toISOString(),
+        }];
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(nextAccounts));
+        localStorage.setItem(SESSION_KEY, username);
+        setAccounts(nextAccounts);
+        setSessionUsername(username);
+        setPlayerName(displayName);
+      } else {
+        const account = accounts.find((item) => item.username === username);
+        if (!account || await hashPassword(authPassword, account.salt) !== account.passwordHash) {
+          setAuthError("Tên đăng nhập hoặc mật khẩu không đúng.");
+          return;
+        }
+        localStorage.setItem(SESSION_KEY, account.username);
+        setSessionUsername(account.username);
+        setPlayerName(account.displayName);
+      }
+      setAuthOpen(false);
+      setAuthUsername("");
+      setAuthDisplayName("");
+      setAuthPassword("");
+      setAuthConfirmPassword("");
+    } catch {
+      setAuthError("Không thể xử lý đăng nhập trên trình duyệt này. Vui lòng thử lại.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   function closeProfile() {
-    setPlayerName((value) => value.trim() || "Người chơi ẩn danh");
+    const displayName = playerName.trim() || "Người chơi ẩn danh";
+    setPlayerName(displayName);
+    if (activeAccount) {
+      const nextAccounts = accounts.map((account) => account.username === activeAccount.username
+        ? { ...account, displayName }
+        : account);
+      setAccounts(nextAccounts);
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(nextAccounts));
+    }
+    setProfileOpen(false);
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    setSessionUsername(null);
+    setPlayerName("Người chơi ẩn danh");
     setProfileOpen(false);
   }
 
@@ -259,7 +424,14 @@ export default function Home() {
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
-          <button className="profile-button" onClick={() => setProfileOpen(true)}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
+          {activeAccount ? (
+            <button className="profile-button" onClick={() => setProfileOpen(true)} aria-label={`Mở tài khoản của ${playerName}`}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
+          ) : (
+            <div className="auth-actions">
+              <button className="login-button" onClick={() => openAuth("login")}>Đăng nhập</button>
+              <button className="signup-button" onClick={() => openAuth("register")}>Đăng ký</button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -375,7 +547,28 @@ export default function Home() {
 
       <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 
-      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">HỒ SƠ CỤC BỘ</span><h2 id="profile-title">Tên hiển thị của bạn</h2><p>Không cần email hay số điện thoại. Tên này chỉ được lưu trên thiết bị.</p><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") closeProfile(); }} /><button className="primary-button" onClick={closeProfile}>Lưu tên</button></Modal>
+      <Modal open={authOpen} onClose={() => setAuthOpen(false)} labelledBy="auth-title" className="auth-modal">
+        <button className="modal-close" aria-label="Đóng đăng nhập" onClick={() => setAuthOpen(false)}>×</button>
+        <span className="modal-symbol">H</span>
+        <span className="eyebrow">KHIÊN SỐ · TÀI KHOẢN THIẾT BỊ</span>
+        <div className="auth-tabs" aria-label="Chọn hình thức tài khoản">
+          <button type="button" aria-pressed={authMode === "login"} className={authMode === "login" ? "active" : ""} onClick={() => switchAuthMode("login")}>Đăng nhập</button>
+          <button type="button" aria-pressed={authMode === "register"} className={authMode === "register" ? "active" : ""} onClick={() => switchAuthMode("register")}>Đăng ký</button>
+        </div>
+        <h2 id="auth-title">{authMode === "login" ? "Chào mừng trở lại" : "Tạo hồ sơ phòng vệ"}</h2>
+        <p className="auth-intro">Tài khoản mô phỏng chỉ được lưu trên trình duyệt hiện tại. Không sử dụng tên đăng nhập hoặc mật khẩu ngân hàng thật.</p>
+        <form className="auth-form" onSubmit={submitAuth}>
+          {authMode === "register" && <label><span>Tên hiển thị</span><input autoComplete="name" value={authDisplayName} maxLength={32} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Ví dụ: Minh An" /></label>}
+          <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="minhan_01" autoCapitalize="none" spellCheck={false} /></label>
+          <label><span>Mật khẩu</span><input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Ít nhất 8 ký tự" /></label>
+          {authMode === "register" && <label><span>Xác nhận mật khẩu</span><input type="password" autoComplete="new-password" value={authConfirmPassword} onChange={(event) => setAuthConfirmPassword(event.target.value)} placeholder="Nhập lại mật khẩu" /></label>}
+          {authError && <p className="auth-error" role="alert">{authError}</p>}
+          <button className="primary-button auth-submit" type="submit" disabled={authBusy}>{authBusy ? "Đang bảo vệ tài khoản…" : authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</button>
+        </form>
+        <p className="auth-security-note"><b>Riêng tư:</b> Mật khẩu được băm trước khi lưu. Tài khoản không đồng bộ sang thiết bị khác.</p>
+      </Modal>
+
+      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">TÀI KHOẢN ĐÃ ĐĂNG NHẬP</span><h2 id="profile-title">Hồ sơ của bạn</h2><p className="account-username">@{activeAccount?.username}</p><label className="profile-name-field"><span>Tên hiển thị</span><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") closeProfile(); }} /></label><div className="profile-actions"><button className="primary-button" onClick={closeProfile}>Lưu thay đổi</button><button className="logout-button" onClick={logout}>Đăng xuất</button></div><p className="profile-note">Tiến trình chơi và tài khoản chỉ được lưu trên thiết bị này.</p></Modal>
     </main>
   );
 }
