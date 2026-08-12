@@ -51,6 +51,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /khien-so-accounts/);
   assert.match(page, /khien-so-session/);
   assert.match(page, /Đăng xuất/);
+  assert.match(page, /Tài sản vừa bị tổn thất/);
+  assert.match(page, /Đã hiểu hậu quả/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));

@@ -22,6 +22,12 @@ type LocalAccount = {
   createdAt: string;
 };
 type AuthMode = "login" | "register";
+type LossNotice = {
+  scenarioTitle: string;
+  amountLost: number;
+  awarenessLost: number;
+  balanceAfter: number;
+};
 
 const ACCOUNTS_KEY = "khien-so-accounts";
 const SESSION_KEY = "khien-so-session";
@@ -208,6 +214,7 @@ export default function Home() {
   const [authConfirmPassword, setAuthConfirmPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [lossNotice, setLossNotice] = useState<LossNotice | null>(null);
   const [accounts, setAccounts] = useState<LocalAccount[]>([]);
   const [sessionUsername, setSessionUsername] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("Người chơi ẩn danh");
@@ -288,6 +295,14 @@ export default function Home() {
     setBalance((value) => Math.max(0, value + choice.moneyDelta));
     setAwareness((value) => Math.max(0, Math.min(100, value + choice.awarenessDelta)));
     setResults((value) => [...value, { scenarioId: selected.id, correct: choice.correct, choiceIndex: index }]);
+    if (!choice.correct) {
+      setLossNotice({
+        scenarioTitle: selected.title,
+        amountLost: Math.max(0, -choice.moneyDelta),
+        awarenessLost: Math.max(0, -choice.awarenessDelta),
+        balanceAfter: Math.max(0, balance + choice.moneyDelta),
+      });
+    }
   }
 
   function resetProgress() {
@@ -295,6 +310,7 @@ export default function Home() {
     setAwareness(100);
     setResults([]);
     setAnswer(null);
+    setLossNotice(null);
     setSelectedId(1);
     setView("game");
   }
@@ -544,6 +560,21 @@ export default function Home() {
       )}
 
       <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>PHÒNG BẢO MẬT</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+
+      {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
+        <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
+        <span className="loss-symbol" aria-hidden="true">!</span>
+        <span className="eyebrow">CẢNH BÁO TỪ KHIÊN SỐ</span>
+        <h2 id="loss-notice-title">{lossNotice.amountLost > 0 ? "Tài sản vừa bị tổn thất" : "Mức cảnh giác vừa giảm"}</h2>
+        <p className="loss-context">Lựa chọn trong tình huống “{lossNotice.scenarioTitle}” đã tạo hậu quả:</p>
+        <div className="loss-summary">
+          <div className={lossNotice.amountLost > 0 ? "has-loss" : ""}><small>Tài sản bị trừ</small><strong>{lossNotice.amountLost > 0 ? `−${money.format(lossNotice.amountLost)}đ` : "0đ"}</strong></div>
+          <div className={lossNotice.awarenessLost > 0 ? "has-loss" : ""}><small>Cảnh giác giảm</small><strong>{lossNotice.awarenessLost > 0 ? `−${lossNotice.awarenessLost}%` : "0%"}</strong></div>
+        </div>
+        <div className="remaining-balance"><span>Tài sản còn lại</span><strong>{money.format(lossNotice.balanceAfter)}đ</strong></div>
+        <p className="loss-reminder">Dừng lại, kiểm tra bằng kênh độc lập và không tiếp tục chuyển tiền khi đang bị thúc ép.</p>
+        <button className="primary-button loss-confirm" onClick={() => setLossNotice(null)}>Đã hiểu hậu quả</button>
+      </Modal>}
 
       <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 

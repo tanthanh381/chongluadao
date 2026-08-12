@@ -165,6 +165,21 @@ footer { min-height: 76px; border-top: 3px solid var(--green); background: var(-
 .profile-actions { display: flex; gap: 9px; margin-top: 17px; }
 .logout-button { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 8px; padding: 11px 15px; cursor: pointer; font-size: 11px; font-weight: 700; }
 .profile-note { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 10px !important; }
+.loss-modal { width: min(500px, 100%); border-top: 5px solid var(--red); }
+.loss-symbol { width: 64px; height: 64px; display: grid; place-items: center; margin-bottom: 20px; border-radius: 50%; background: var(--red); color: #ffffff; font: 700 38px Georgia, serif; }
+.loss-modal h2 { margin-bottom: 10px; }
+.loss-context, .loss-reminder { color: var(--muted); font-size: 11px; line-height: 1.55; }
+.loss-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0 10px; }
+.loss-summary > div { padding: 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.loss-summary small { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.loss-summary strong { display: block; margin-top: 7px; font: 24px Georgia, serif; }
+.loss-summary .has-loss { border-color: color-mix(in srgb, var(--red) 40%, var(--line)); background: color-mix(in srgb, var(--red) 7%, var(--surface)); }
+.loss-summary .has-loss strong { color: var(--red); }
+.remaining-balance { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border: 1px solid var(--line); border-radius: 10px; font-size: 11px; }
+.remaining-balance span { color: var(--muted); }
+.remaining-balance strong { font-size: 15px; }
+.loss-reminder { margin: 16px 0; }
+.loss-confirm { width: 100%; }
 
 @media (max-width: 1220px) {
   .game-shell { grid-template-columns: 300px minmax(500px, 1fr); }
@@ -177,7 +192,7 @@ footer { min-height: 76px; border-top: 3px solid var(--green); background: var(-
   .knowledge-grid { grid-template-columns: 1fr; }.content-page { padding: 45px 18px; }.page-hero h1 { font-size: 49px; }.hotline-strip { grid-template-columns: 1fr; }.stats-overview, .achievement-grid, .evidence-grid { grid-template-columns: 1fr 1fr; }.top-actions { gap: 5px; }.auth-actions .signup-button { display: none; }
 }
 @media (max-width: 520px) {
-  .hdbank-logo { width: 83px; }.brand-divider { height: 30px; }.product-lockup strong { font-size: 12px; }.topbar nav button { font-size: 11px; }.status-grid { grid-template-columns: 1fr 1fr; }.status-card { padding: 9px; }.status-card .badge-icon { display: none; }.meter { left: 10px; }.scenario-title-row { align-items: flex-start; }.scenario-hero-icon { width: 46px; height: 46px; font-size: 22px; }.scenario-title-row h2 { font-size: 25px; }.choice { padding: 10px; grid-template-columns: 28px 1fr auto; }.stats-overview, .achievement-grid, .evidence-grid { grid-template-columns: 1fr; }.modal { padding: 30px 20px; }.app > footer { align-items: flex-start; flex-direction: column; gap: 8px; }.app > footer p { margin: 0; }
+  .hdbank-logo { width: 83px; }.brand-divider { height: 30px; }.product-lockup strong { font-size: 12px; }.topbar nav button { font-size: 11px; }.status-grid { grid-template-columns: 1fr 1fr; }.status-card { padding: 9px; }.status-card .badge-icon { display: none; }.meter { left: 10px; }.scenario-title-row { align-items: flex-start; }.scenario-hero-icon { width: 46px; height: 46px; font-size: 22px; }.scenario-title-row h2 { font-size: 25px; }.choice { padding: 10px; grid-template-columns: 28px 1fr auto; }.stats-overview, .achievement-grid, .evidence-grid { grid-template-columns: 1fr; }.modal { padding: 30px 20px; }.loss-summary { grid-template-columns: 1fr; }.app > footer { align-items: flex-start; flex-direction: column; gap: 8px; }.app > footer p { margin: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
