@@ -28,7 +28,7 @@ test("server renders the Khiên Số experience", async () => {
   assert.match(html, /Mô phỏng/);
   assert.match(html, /Đăng nhập/);
   assert.match(html, /Đăng ký/);
-  assert.match(html, /Dashboard CISO/);
+  assert.match(html, />Dashboard</);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 

@@ -567,7 +567,7 @@ export default function Home() {
           <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
           <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
           <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
-          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard CISO</button>
+          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
