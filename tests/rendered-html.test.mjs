@@ -28,6 +28,7 @@ test("server renders the Khiên Số experience", async () => {
   assert.match(html, /Mô phỏng/);
   assert.match(html, /Đăng nhập/);
   assert.match(html, /Đăng ký/);
+  assert.match(html, /Dashboard CISO/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
@@ -56,6 +57,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /khien-so-progress:\$\{username/);
   assert.match(page, /resetAuthForm/);
   assert.match(page, /loadProgressForSession/);
+  assert.match(page, /exportCisoReport/);
+  assert.match(page, /Dashboard nhận thức an toàn/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));

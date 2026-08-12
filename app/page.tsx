@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Difficulty, knowledgeCards, scenarios } from "./data";
 
 type Result = { scenarioId: number; correct: boolean; choiceIndex: number };
-type View = "game" | "knowledge" | "stats" | "evidence";
+type View = "game" | "knowledge" | "stats" | "evidence" | "dashboard";
 type StoredProgress = {
   balance: number;
   awareness: number;
@@ -27,6 +27,18 @@ type LossNotice = {
   amountLost: number;
   awarenessLost: number;
   balanceAfter: number;
+};
+type AnalyticsUser = {
+  username: string;
+  displayName: string;
+  createdAt: string;
+  completed: number;
+  correct: number;
+  accuracy: number;
+  awareness: number;
+  balance: number;
+  loss: number;
+  risk: "Thấp" | "Trung bình" | "Cao";
 };
 
 const ACCOUNTS_KEY = "khien-so-accounts";
@@ -272,6 +284,64 @@ export default function Home() {
   const score = results.reduce((total, result) => total + (result.correct ? 120 : 20), 0);
   const activeAccount = accounts.find((account) => account.username === sessionUsername) ?? null;
 
+  const analyticsUsers = useMemo<AnalyticsUser[]>(() => {
+    if (!hydrated) return [];
+    return accounts.map((account) => {
+      const saved = account.username === sessionUsername
+        ? { balance, awareness, results }
+        : readStoredProgress(progressKey(account.username));
+      const accountResults = saved?.results ?? [];
+      const correct = accountResults.filter((result) => result.correct).length;
+      const completed = new Set(accountResults.map((result) => result.scenarioId)).size;
+      const accuracy = accountResults.length ? Math.round((correct / accountResults.length) * 100) : 0;
+      const accountAwareness = saved?.awareness ?? 100;
+      const accountBalance = saved?.balance ?? 300_000_000;
+      const risk = accountResults.length === 0
+        ? "Trung bình"
+        : accuracy < 60 || accountAwareness < 70
+          ? "Cao"
+          : accuracy < 80 || accountAwareness < 85
+            ? "Trung bình"
+            : "Thấp";
+      return {
+        username: account.username,
+        displayName: account.displayName,
+        createdAt: account.createdAt,
+        completed,
+        correct,
+        accuracy,
+        awareness: accountAwareness,
+        balance: accountBalance,
+        loss: Math.max(0, 300_000_000 - accountBalance),
+        risk,
+      };
+    });
+  }, [accounts, awareness, balance, hydrated, results, sessionUsername]);
+
+  const analytics = useMemo(() => {
+    const attempts = analyticsUsers.reduce((sum, user) => sum + user.completed, 0);
+    const correct = analyticsUsers.reduce((sum, user) => sum + user.correct, 0);
+    const active = analyticsUsers.filter((user) => user.completed > 0).length;
+    return {
+      active,
+      participation: analyticsUsers.length ? Math.round((active / analyticsUsers.length) * 100) : 0,
+      attempts,
+      correct,
+      accuracy: attempts ? Math.round((correct / attempts) * 100) : 0,
+      highRisk: analyticsUsers.filter((user) => user.risk === "Cao").length,
+      totalLoss: analyticsUsers.reduce((sum, user) => sum + user.loss, 0),
+    };
+  }, [analyticsUsers]);
+
+  const scenarioRisks = useMemo(() => scenarios.map((scenario) => {
+    const attempts = analyticsUsers.reduce((sum, user) => {
+      const saved = user.username === sessionUsername ? results : readStoredProgress(progressKey(user.username))?.results ?? [];
+      return [...sum, ...saved.filter((result) => result.scenarioId === scenario.id)];
+    }, [] as Result[]);
+    const wrong = attempts.filter((result) => !result.correct).length;
+    return { ...scenario, attempts: attempts.length, wrong, rate: attempts.length ? Math.round((wrong / attempts.length) * 100) : 0 };
+  }).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [analyticsUsers, results, sessionUsername]);
+
   const filtered = useMemo(() => scenarios.filter((item) => {
     const matchesDifficulty = difficulty === "Tất cả" || item.difficulty === difficulty;
     const needle = query.trim().toLowerCase();
@@ -460,6 +530,28 @@ export default function Home() {
     chooseScenario(remaining?.id ?? scenarios[0].id);
   }
 
+  function exportCisoReport() {
+    const header = ["Tên hiển thị", "Tên đăng nhập", "Ngày đăng ký", "Đã hoàn thành", "Chính xác (%)", "Cảnh giác (%)", "Tổn thất (VND)", "Mức rủi ro"];
+    const escapeCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+    const rows = analyticsUsers.map((user) => [
+      user.displayName,
+      user.username,
+      new Date(user.createdAt).toLocaleDateString("vi-VN"),
+      user.completed,
+      user.accuracy,
+      user.awareness,
+      user.loss,
+      user.risk,
+    ]);
+    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bao-cao-khien-so-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   const previousResult = results.find((result) => result.scenarioId === selected.id);
   const selectedAnswer = answer ?? previousResult?.choiceIndex ?? null;
 
@@ -475,6 +567,7 @@ export default function Home() {
           <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
           <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
           <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
+          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard CISO</button>
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
@@ -594,6 +687,48 @@ export default function Home() {
           <button className="back-button" onClick={() => setView("game")}>← Quay lại màn chơi</button>
           <div className="page-hero"><span className="eyebrow">HỘP CHỨNG CỨ</span><h1>Dấu vết bạn đã thu thập</h1><p>Mỗi kịch bản xử lý đúng mở khoá một chứng cứ và một bài học có thể áp dụng ngoài đời.</p></div>
           <div className="evidence-grid">{scenarios.map((item) => <article className={safeIds.has(item.id) ? "unlocked" : ""} key={item.id}><span className="evidence-icon">{safeIds.has(item.id) ? item.icon : "?"}</span><div><small>CHỨNG CỨ {String(item.id).padStart(2, "0")}</small><h2>{safeIds.has(item.id) ? item.evidence : "Chưa xác định"}</h2><p>{safeIds.has(item.id) ? item.tip : "Xử lý an toàn kịch bản này để mở khoá."}</p></div></article>)}</div>
+        </section>
+      )}
+
+      {view === "dashboard" && (
+        <section className="content-page dashboard-page">
+          <div className="dashboard-heading">
+            <div><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu mô phỏng của trình duyệt hiện tại.</p></div>
+            <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>
+          </div>
+          <div className="data-scope-note" role="note"><strong>Phạm vi dữ liệu:</strong> {analyticsUsers.length} tài khoản trên thiết bị này · Cập nhật theo thời gian thực · Không chứa mật khẩu hoặc dữ liệu ngân hàng.</div>
+
+          <div className="ciso-kpis">
+            <article><small>Người dùng đã đăng ký</small><strong>{analyticsUsers.length}</strong><span>{analytics.active} đã tham gia đào tạo</span></article>
+            <article><small>Tỷ lệ tham gia</small><strong>{analytics.participation}%</strong><span>{analytics.active}/{analyticsUsers.length || 0} người dùng hoạt động</span></article>
+            <article><small>Tỷ lệ xử lý an toàn</small><strong>{analytics.accuracy}%</strong><span>{analytics.correct}/{analytics.attempts} lượt đúng</span></article>
+            <article className={analytics.highRisk ? "risk-kpi" : ""}><small>Người dùng rủi ro cao</small><strong>{analytics.highRisk}</strong><span>Cần ưu tiên đào tạo lại</span></article>
+            <article><small>Tổn thất mô phỏng</small><strong className="dashboard-money">{money.format(analytics.totalLoss)}đ</strong><span>Tổng tác động từ lựa chọn sai</span></article>
+          </div>
+
+          <div className="dashboard-grid">
+            <article className="dashboard-card outcome-card">
+              <div className="dashboard-card-title"><div><small>HIỆU QUẢ ĐÀO TẠO</small><h2>Kết quả xử lý tình huống</h2></div><strong>{analytics.attempts} lượt</strong></div>
+              <div className="outcome-chart" aria-label={`${analytics.correct} lượt an toàn, ${Math.max(0, analytics.attempts - analytics.correct)} lượt mắc bẫy`}>
+                <div className="outcome-bar"><span style={{ width: `${analytics.accuracy}%` }} /></div>
+                <div className="outcome-legend"><span><i className="safe-dot" />An toàn <b>{analytics.correct}</b></span><span><i className="risk-dot" />Mắc bẫy <b>{Math.max(0, analytics.attempts - analytics.correct)}</b></span></div>
+              </div>
+            </article>
+            <article className="dashboard-card">
+              <div className="dashboard-card-title"><div><small>RỦI RO NỔI BẬT</small><h2>Kịch bản dễ mắc bẫy</h2></div></div>
+              <div className="risk-ranking">
+                {scenarioRisks.map((item, index) => <div key={item.id}><span>{index + 1}</span><div><strong>{item.title}</strong><small>{item.attempts ? `${item.wrong}/${item.attempts} lượt sai` : "Chưa có dữ liệu"}</small></div><b>{item.rate}%</b></div>)}
+              </div>
+            </article>
+          </div>
+
+          <article className="dashboard-card user-analysis">
+            <div className="dashboard-card-title"><div><small>PHÂN TÍCH NGƯỜI DÙNG</small><h2>Danh sách ưu tiên đào tạo</h2></div><span>Sắp xếp theo mức rủi ro</span></div>
+            <div className="analytics-table-wrap"><table><thead><tr><th>Người dùng</th><th>Tham gia</th><th>Chính xác</th><th>Cảnh giác</th><th>Tổn thất mô phỏng</th><th>Đánh giá</th></tr></thead><tbody>
+              {[...analyticsUsers].sort((a, b) => ({ Cao: 0, "Trung bình": 1, Thấp: 2 }[a.risk] - { Cao: 0, "Trung bình": 1, Thấp: 2 }[b.risk])).map((user) => <tr key={user.username}><td><strong>{user.displayName}</strong><small>@{user.username} · {new Date(user.createdAt).toLocaleDateString("vi-VN")}</small></td><td>{user.completed}/{scenarios.length}</td><td>{user.accuracy}%</td><td>{user.awareness}%</td><td>{money.format(user.loss)}đ</td><td><span className={`risk-label risk-${user.risk === "Cao" ? "high" : user.risk === "Thấp" ? "low" : "medium"}`}>{user.risk}</span></td></tr>)}
+              {!analyticsUsers.length && <tr><td colSpan={6} className="empty-table">Chưa có tài khoản để phân tích.</td></tr>}
+            </tbody></table></div>
+          </article>
         </section>
       )}
 
