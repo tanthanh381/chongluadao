@@ -223,6 +223,64 @@ footer { min-height: 76px; border-top: 3px solid var(--green); background: var(-
 .loss-reminder { margin: 16px 0; }
 .loss-confirm { width: 100%; }
 
+/* Readability baseline: use one Vietnamese-safe type stack and avoid micro text. */
+body, button, input, table { font-family: "Segoe UI", "Noto Sans", Arial, sans-serif; }
+h1, h2, h3, .panel-heading h1, .scenario-title-row h2, .story-box p,
+.feedback strong, .coach-card h3, .ring span, .knowledge-grid h2,
+.hotline-strip strong, .stats-overview strong, .achievement-section h2,
+.achievement-grid strong, .evidence-grid h2, .modal h2, .modal li b,
+.loss-summary strong, .dashboard-heading h1, .dashboard-card-title h2,
+.dashboard-card-title > strong, .risk-ranking b, .ciso-kpis strong {
+  font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
+}
+.page-hero h1, .dashboard-heading h1 { font-weight: 750; line-height: 1.08; }
+.scenario-title-row h2 { font-weight: 750; line-height: 1.12; }
+.panel-heading h1 { font-size: 25px; font-weight: 750; }
+.eyebrow { font-size: 11px; line-height: 1.4; }
+.topbar nav button { font-size: 14px; }
+.login-button, .signup-button { font-size: 12px; }
+.scenario-count { font-size: 12px; }
+.search-box input { font-size: 13px; }
+.difficulty-filter button { font-size: 11px; }
+.scenario-copy strong { font-size: 14px; line-height: 1.35; }
+.scenario-copy small { font-size: 11px; line-height: 1.35; }
+.random-button { font-size: 12px; }
+.status-card small { font-size: 11px; line-height: 1.3; }
+.status-card strong { font-size: clamp(14px, 1.25vw, 17px); }
+.scenario-meta { font-size: 11px; }
+.story-box p { font-size: 17px; line-height: 1.7; }
+.red-flags strong { font-size: 11px; }
+.red-flags span { font-size: 11px; line-height: 1.4; }
+.decision-title { font-size: 16px; }
+.choice { font-size: 14px; }
+.feedback p { font-size: 13px; }.feedback small { font-size: 12px; line-height: 1.5; }.feedback button { font-size: 12px; }
+.coach-card p { font-size: 13px; }.coach-card button { font-size: 11px; }
+.section-title small { font-size: 10px; }.section-title h3 { font-size: 18px; }.section-title button { font-size: 11px; }
+.ring small, .mini-stats span, .emergency-card small { font-size: 10px; }.emergency-card strong { font-size: 12px; }
+.page-hero p { font-size: 15px; }
+.knowledge-grid p { font-size: 14px; }.knowledge-grid h2 { font-size: 24px; }
+.hotline-strip span { font-size: 11px; }.hotline-strip p { font-size: 12px; }
+.stats-overview small { font-size: 11px; }.stats-overview span { font-size: 12px; }
+.achievement-grid strong { font-size: 16px; }.achievement-grid small { font-size: 11px; }
+.evidence-grid small { font-size: 10px; }.evidence-grid h2 { font-size: 20px; }.evidence-grid p { font-size: 12px; }
+.dashboard-heading p { font-size: 14px; }.export-button { font-size: 12px; }
+.data-scope-note { font-size: 12px; }
+.ciso-kpis small, .dashboard-card-title small { font-size: 10px; line-height: 1.4; }
+.ciso-kpis span { font-size: 11px; }.ciso-kpis strong { font-weight: 700; }
+.dashboard-card-title h2 { font-size: 24px; font-weight: 700; }
+.outcome-legend { font-size: 12px; }
+.risk-ranking strong { font-size: 12px; line-height: 1.35; }.risk-ranking small { font-size: 10px; }.risk-ranking b { font-size: 18px; }
+.dashboard-card-title > span { font-size: 11px; }
+.analytics-table-wrap table { font-size: 12px; }
+.analytics-table-wrap th { font-size: 10px; line-height: 1.4; }
+.analytics-table-wrap td:first-child strong { font-size: 13px; }.analytics-table-wrap td:first-child small { font-size: 10px; }
+.risk-label { font-size: 10px; }
+.auth-tabs button, .auth-form label > span, .profile-name-field > span { font-size: 12px; }
+.auth-intro, .auth-security-note, .profile-modal p, .loss-context, .loss-reminder { font-size: 13px; }
+.auth-form input, .profile-modal input { font-size: 14px; }
+.primary-button, .logout-button { font-size: 13px; }
+footer { font-size: 12px; }.footer-brand small { font-size: 10px; }
+
 @media (max-width: 1220px) {
   .game-shell { grid-template-columns: 300px minmax(500px, 1fr); }
   .insight-panel { display: none; }
