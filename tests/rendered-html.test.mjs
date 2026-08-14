@@ -59,6 +59,7 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /loadProgressForSession/);
   assert.match(page, /exportCisoReport/);
   assert.match(page, /Dashboard nhận thức an toàn/);
+  assert.doesNotMatch(page, /HỖ TRỢ KHẨN CẤP|Liên hệ HDBank 1900 6060/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));
