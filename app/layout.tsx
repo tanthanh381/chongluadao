@@ -9,19 +9,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
 
   return {
-    title: "Khiên Số | HDBank - Phòng Bảo mật",
-    description: "Chương trình mô phỏng tương tác của HDBank - Phòng Bảo mật, giúp nhận diện và xử lý các kịch bản lừa đảo trực tuyến phổ biến.",
+    title: "Khiên Số | HDBank - IT Security",
+    description: "Chương trình mô phỏng tương tác của HDBank - IT Security, giúp nhận diện và xử lý các kịch bản lừa đảo trực tuyến phổ biến.",
     icons: { icon: "/hdbank-logo.png", shortcut: "/hdbank-logo.png" },
     openGraph: {
-      title: "Khiên Số | HDBank - Phòng Bảo mật",
+      title: "Khiên Số | HDBank - IT Security",
       description: "Học để không thành con mồi — thử sức với các tình huống lừa đảo và xây dựng phản xạ phòng vệ số.",
       type: "website",
       locale: "vi_VN",
-      images: [{ url: `${origin}/og.png`, width: 1792, height: 933, alt: "Khiên Số — HDBank Phòng Bảo mật" }],
+      images: [{ url: `${origin}/og.png`, width: 1731, height: 909, alt: "Khiên Số — HDBank IT Security" }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Khiên Số | HDBank - Phòng Bảo mật",
+      title: "Khiên Số | HDBank - IT Security",
       description: "Học để không thành con mồi — chương trình mô phỏng giúp xây dựng phản xạ phòng vệ số.",
       images: [`${origin}/og.png`],
     },

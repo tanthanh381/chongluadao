@@ -558,10 +558,10 @@ export default function Home() {
   return (
     <main className={dark ? "app dark" : "app"}>
       <header className="topbar">
-        <button className="brand" onClick={() => setView("game")} aria-label="HDBank Phòng Bảo mật — về màn chơi">
+        <button className="brand" onClick={() => setView("game")} aria-label="HDBank IT Security — về màn chơi">
           <img className="hdbank-logo" src="hdbank-logo.png" alt="HDBank" />
           <span className="brand-divider" aria-hidden="true" />
-          <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>PHÒNG BẢO MẬT</small></span>
+          <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>IT SECURITY</small></span>
         </button>
         <nav aria-label="Điều hướng chính">
           <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
@@ -648,7 +648,7 @@ export default function Home() {
 
           <aside className="insight-panel">
             <div className="coach-card">
-              <span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
+              <span className="eyebrow">HDBANK · IT SECURITY</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
               <button onClick={() => setGuide(true)}>Xem quy tắc 3 bước</button>
             </div>
             <div className="progress-card">
@@ -667,7 +667,7 @@ export default function Home() {
 
       {view === "knowledge" && (
         <section className="content-page">
-          <div className="page-hero"><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h1>Sáu thói quen nhỏ,<br/>một lớp giáp lớn.</h1><p>Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.</p></div>
+          <div className="page-hero"><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Sáu thói quen nhỏ,<br/>một lớp giáp lớn.</h1><p>Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.</p></div>
           <div className="knowledge-grid">{knowledgeCards.map((card, index) => <article key={card.title}><span>{String(index + 1).padStart(2, "0")}</span><BadgeIcon>{card.icon}</BadgeIcon><h2>{card.title}</h2><p>{card.text}</p></article>)}</div>
           <div className="hotline-strip"><span>HỖ TRỢ KHẨN CẤP</span><strong>Liên hệ HDBank 1900 6060</strong><p>Yêu cầu khoá giao dịch, lưu bằng chứng và trình báo cơ quan công an gần nhất. Không trả thêm “phí thu hồi” cho bất kỳ ai.</p></div>
         </section>
@@ -693,7 +693,7 @@ export default function Home() {
       {view === "dashboard" && (
         <section className="content-page dashboard-page">
           <div className="dashboard-heading">
-            <div><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu mô phỏng của trình duyệt hiện tại.</p></div>
+            <div><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu mô phỏng của trình duyệt hiện tại.</p></div>
             <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>
           </div>
           <div className="data-scope-note" role="note"><strong>Phạm vi dữ liệu:</strong> {analyticsUsers.length} tài khoản trên thiết bị này · Cập nhật theo thời gian thực · Không chứa mật khẩu hoặc dữ liệu ngân hàng.</div>
@@ -732,7 +732,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>PHÒNG BẢO MẬT</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>IT SECURITY</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
@@ -749,7 +749,7 @@ export default function Home() {
         <button className="primary-button loss-confirm" onClick={() => setLossNotice(null)}>Đã hiểu hậu quả</button>
       </Modal>}
 
-      <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · PHÒNG BẢO MẬT</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
+      <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · IT SECURITY</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank 1900 6060, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 
       <Modal open={authOpen} onClose={closeAuth} labelledBy="auth-title" className="auth-modal">
         <button className="modal-close" aria-label="Đóng đăng nhập" onClick={closeAuth}>×</button>

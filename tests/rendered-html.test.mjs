@@ -21,8 +21,8 @@ test("server renders the Khiên Số experience", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /Khiên Số \| HDBank - Phòng Bảo mật/);
-  assert.match(html, /HDBANK · PHÒNG BẢO MẬT/);
+  assert.match(html, /Khiên Số \| HDBank - IT Security/);
+  assert.match(html, /HDBANK · IT SECURITY/);
   assert.match(html, /THƯ VIỆN TÌNH HUỐNG/);
   assert.match(html, /Cuộc gọi ‘điều tra khẩn cấp’/);
   assert.match(html, /Mô phỏng/);
@@ -40,7 +40,7 @@ test("ships product metadata and social artwork", async () => {
   ]);
 
   assert.match(layout, /og\.png/);
-  assert.match(layout, /HDBank - Phòng Bảo mật/);
+  assert.match(layout, /HDBank - IT Security/);
   assert.match(layout, /lang="vi"/);
   assert.match(page, /localStorage/);
   assert.match(page, /KHIÊN SỐ/);

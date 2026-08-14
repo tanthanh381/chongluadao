@@ -1,6 +1,6 @@
 # Khiên Số
 
-**Khiên Số** là chương trình mô phỏng tương tác của **HDBank - Phòng Bảo mật**, giúp người chơi hình thành phản xạ trước các thủ đoạn lừa đảo trực tuyến phổ biến.
+**Khiên Số** là chương trình mô phỏng tương tác của **HDBank - IT Security**, giúp người chơi hình thành phản xạ trước các thủ đoạn lừa đảo trực tuyến phổ biến.
 
 🌐 Bản public: [https://khien-so.hdbank-it-di-7575.chatgpt.site](https://khien-so.hdbank-it-di-7575.chatgpt.site)
 
