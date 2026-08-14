@@ -63,5 +63,6 @@ test("ships product metadata and social artwork", async () => {
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));
+  await access(new URL("../public/favicon.png", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview", root)));
 });

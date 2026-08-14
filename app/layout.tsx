@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Khiên Số | HDBank - IT Security",
     description: "Chương trình mô phỏng tương tác của HDBank - IT Security, giúp nhận diện và xử lý các kịch bản lừa đảo trực tuyến phổ biến.",
-    icons: { icon: "/hdbank-logo.png", shortcut: "/hdbank-logo.png" },
+    icons: { icon: "/favicon.png", shortcut: "/favicon.png" },
     openGraph: {
       title: "Khiên Số | HDBank - IT Security",
       description: "Học để không thành con mồi — thử sức với các tình huống lừa đảo và xây dựng phản xạ phòng vệ số.",
