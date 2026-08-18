@@ -2,7 +2,7 @@
 
 **Khiên Số** là chương trình mô phỏng tương tác của **HDBank - IT Security**, giúp người chơi hình thành phản xạ trước các thủ đoạn lừa đảo trực tuyến phổ biến.
 
-🌐 Bản public: [https://khien-so.hdbank-it-di-7575.chatgpt.site](https://khien-so.hdbank-it-di-7575.chatgpt.site)
+🌐 Bản public: [https://tanthanh381.github.io/chongluadao/](https://tanthanh381.github.io/chongluadao/)
 
 ## Tính năng
 
@@ -13,8 +13,12 @@
 - Chứng cứ, huy hiệu, chuỗi thành tích và thống kê
 - Cẩm nang xử lý khẩn cấp theo quy tắc Dừng — Kiểm — Báo
 - Chế độ sáng/tối và giao diện responsive
-- Lưu tiến trình riêng trên thiết bị bằng `localStorage`
-- Không yêu cầu hoặc thu thập dữ liệu cá nhân thật
+- Đăng ký/đăng nhập email bằng Supabase Auth
+- Đồng bộ hồ sơ, tiến trình và kết quả kiểm tra giữa các thiết bị
+- Dashboard dữ liệu tập trung, chỉ mở cho tài khoản được cấp quyền CISO
+- Row Level Security bảo đảm người dùng thường chỉ đọc/ghi dữ liệu của chính mình
+- `localStorage` chỉ dùng cho giao diện và tiến trình khách chưa đăng nhập
+- Không yêu cầu hoặc thu thập dữ liệu ngân hàng
 - Bộ nhận diện HDBank chính thức với màu đỏ `#BE1128`, vàng `#FFDC00` và logo từ hdbank.com.vn
 
 ## Chạy cục bộ
@@ -37,7 +41,21 @@ node --test tests/rendered-html.test.mjs
 
 ## Công nghệ
 
-React 19, TypeScript, vinext/Vite và Cloudflare Workers-compatible output.
+React 19, TypeScript, vinext/Vite, Supabase Auth/Postgres và Cloudflare Workers-compatible output.
+
+## Dữ liệu và phân quyền
+
+Cấu trúc cơ sở dữ liệu nằm tại `supabase/schema.sql`. Website chỉ chứa khóa Supabase publishable dành cho trình duyệt; không chứa secret key hoặc `service_role`.
+
+Để cấp quyền Dashboard cho một tài khoản đã xác nhận email, chạy bằng SQL Editor của Supabase với email quản trị thực tế:
+
+```sql
+insert into private.app_admins (user_id)
+select id from auth.users where email = 'ciso@example.com'
+on conflict (user_id) do nothing;
+```
+
+Trong Supabase Authentication → URL Configuration, đặt Site URL là `https://tanthanh381.github.io/chongluadao/` và thêm cùng URL vào Redirect URLs để liên kết xác nhận email quay lại đúng website.
 
 ## Lưu ý
 

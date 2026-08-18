@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Difficulty, knowledgeCards, scenarios } from "./data";
+import { supabase } from "./supabase";
 
 type Result = { scenarioId: number; correct: boolean; choiceIndex: number };
 type View = "game" | "knowledge" | "stats" | "evidence" | "dashboard";
@@ -14,11 +15,11 @@ type StoredProgress = {
   dark: boolean;
   playerName: string;
 };
-type LocalAccount = {
+type SessionAccount = {
+  id: string;
+  email: string;
   username: string;
   displayName: string;
-  salt: string;
-  passwordHash: string;
   createdAt: string;
 };
 type AuthMode = "login" | "register";
@@ -40,10 +41,11 @@ type AnalyticsUser = {
   loss: number;
   risk: "Thấp" | "Trung bình" | "Cao";
 };
+type DashboardStatus = "idle" | "loading" | "ready" | "forbidden" | "error";
+type ScenarioRisk = { scenarioId: number; attempts: number; wrong: number; rate: number };
 
-const ACCOUNTS_KEY = "khien-so-accounts";
-const SESSION_KEY = "khien-so-session";
 const LEGACY_PROGRESS_KEY = "khien-so-progress";
+const THEME_KEY = "khien-so-theme";
 
 function progressKey(username: string | null) {
   return `khien-so-progress:${username ?? "guest"}`;
@@ -98,44 +100,6 @@ function readStoredProgress(key: string): StoredProgress | null {
   } catch {
     return null;
   }
-}
-
-function readLocalAccounts(): LocalAccount[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((account): account is LocalAccount => {
-      if (!account || typeof account !== "object") return false;
-      const item = account as Record<string, unknown>;
-      return typeof item.username === "string"
-        && typeof item.displayName === "string"
-        && typeof item.salt === "string"
-        && typeof item.passwordHash === "string"
-        && typeof item.createdAt === "string";
-    });
-  } catch {
-    return [];
-  }
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  return btoa(String.fromCharCode(...bytes));
-}
-
-function base64ToBytes(value: string) {
-  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
-}
-
-async function hashPassword(password: string, salt: string) {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    salt: base64ToBytes(salt),
-    iterations: 120_000,
-    hash: "SHA-256",
-  }, key, 256);
-  return bytesToBase64(new Uint8Array(bits));
 }
 
 function Modal({
@@ -225,99 +189,107 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authEmail, setAuthEmail] = useState("");
   const [authUsername, setAuthUsername] = useState("");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authConfirmPassword, setAuthConfirmPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [lossNotice, setLossNotice] = useState<LossNotice | null>(null);
-  const [accounts, setAccounts] = useState<LocalAccount[]>([]);
-  const [sessionUsername, setSessionUsername] = useState<string | null>(null);
+  const [sessionAccount, setSessionAccount] = useState<SessionAccount | null>(null);
+  const [dataStatus, setDataStatus] = useState("");
+  const [analyticsUsers, setAnalyticsUsers] = useState<AnalyticsUser[]>([]);
+  const [dashboardStatus, setDashboardStatus] = useState<DashboardStatus>("idle");
+  const [dashboardScenarioRisks, setDashboardScenarioRisks] = useState<ScenarioRisk[]>([]);
   const [playerName, setPlayerName] = useState("Người chơi ẩn danh");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const storedAccounts = readLocalAccounts();
-      const storedSession = localStorage.getItem(SESSION_KEY);
-      const validSession = storedSession && storedAccounts.some((account) => account.username === storedSession)
-        ? storedSession
-        : null;
-      let saved = readStoredProgress(progressKey(validSession));
-      if (!validSession && !saved) {
-        saved = readStoredProgress(LEGACY_PROGRESS_KEY);
-        if (saved) localStorage.setItem(progressKey(null), JSON.stringify(saved));
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      if (data.session?.user) await loadRemoteAccount(data.session.user.id, data.session.user.email ?? "");
+      else loadGuestProgress();
+      if (active) setHydrated(true);
+    };
+    void load();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === "SIGNED_OUT") {
+        setSessionAccount(null);
+        loadGuestProgress();
+        return;
       }
-      if (saved) {
-        setBalance(saved.balance ?? 300_000_000);
-        setAwareness(saved.awareness ?? 100);
-        setResults(saved.results ?? []);
-        setDark(saved.dark ?? false);
-        const accountName = validSession
-          ? storedAccounts.find((account) => account.username === validSession)?.displayName
-          : null;
-        setPlayerName(accountName ?? saved.playerName ?? "Người chơi ẩn danh");
-      } else if (validSession) {
-        setPlayerName(storedAccounts.find((account) => account.username === validSession)?.displayName ?? "Người chơi ẩn danh");
+      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
+        window.setTimeout(() => void loadRemoteAccount(session.user.id, session.user.email ?? ""), 0);
       }
-      setAccounts(storedAccounts);
-      if (validSession) {
-        setSessionUsername(validSession);
-      } else {
-        localStorage.removeItem(SESSION_KEY);
-      }
-      setHydrated(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    });
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  // Supabase is a singleton and these loader functions intentionally read the
+  // latest browser state when auth emits an event.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(progressKey(sessionUsername), JSON.stringify({ balance, awareness, results, dark, playerName }));
-  }, [balance, awareness, results, dark, playerName, hydrated, sessionUsername]);
+    localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
+    if (!sessionAccount) localStorage.setItem(progressKey(null), JSON.stringify({ balance, awareness, results, dark, playerName }));
+  }, [balance, awareness, results, dark, playerName, hydrated, sessionAccount]);
+
+  useEffect(() => {
+    if (view !== "dashboard") return;
+    if (!sessionAccount) return;
+    let active = true;
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      setDashboardStatus("loading");
+      const { data, error } = await supabase.rpc("get_ciso_dashboard");
+      if (!active) return;
+      if (error?.code === "42501") {
+        setDashboardStatus("forbidden");
+        return;
+      }
+      if (error || !data || typeof data !== "object") {
+        setDashboardStatus("error");
+        return;
+      }
+      const payload = data as { users?: Array<Record<string, unknown>>; scenarios?: Array<Record<string, unknown>> };
+      setAnalyticsUsers((payload.users ?? []).map((user) => ({
+        username: String(user.username ?? ""),
+        displayName: String(user.display_name ?? ""),
+        createdAt: String(user.created_at ?? ""),
+        completed: Number(user.completed ?? 0),
+        correct: Number(user.correct ?? 0),
+        accuracy: Number(user.accuracy ?? 0),
+        awareness: Number(user.awareness ?? 100),
+        balance: Number(user.balance ?? 300_000_000),
+        loss: Number(user.loss ?? 0),
+        risk: user.risk === "Cao" || user.risk === "Thấp" ? user.risk : "Trung bình",
+      })));
+      setDashboardScenarioRisks((payload.scenarios ?? []).map((item) => ({
+        scenarioId: Number(item.scenario_id ?? 0),
+        attempts: Number(item.attempts ?? 0),
+        wrong: Number(item.wrong ?? 0),
+        rate: Number(item.rate ?? 0),
+      })));
+      setDashboardStatus("ready");
+    })();
+    return () => { active = false; };
+  }, [view, sessionAccount]);
 
   const selected = scenarios.find((item) => item.id === selectedId) ?? scenarios[0];
   const completedIds = new Set(results.map((result) => result.scenarioId));
   const safeIds = new Set(results.filter((result) => result.correct).map((result) => result.scenarioId));
   const evidence = scenarios.filter((item) => safeIds.has(item.id));
   const score = results.reduce((total, result) => total + (result.correct ? 120 : 20), 0);
-  const activeAccount = accounts.find((account) => account.username === sessionUsername) ?? null;
-
-  const analyticsUsers = useMemo<AnalyticsUser[]>(() => {
-    if (!hydrated) return [];
-    return accounts.map((account) => {
-      const saved = account.username === sessionUsername
-        ? { balance, awareness, results }
-        : readStoredProgress(progressKey(account.username));
-      const accountResults = saved?.results ?? [];
-      const correct = accountResults.filter((result) => result.correct).length;
-      const completed = new Set(accountResults.map((result) => result.scenarioId)).size;
-      const accuracy = accountResults.length ? Math.round((correct / accountResults.length) * 100) : 0;
-      const accountAwareness = saved?.awareness ?? 100;
-      const accountBalance = saved?.balance ?? 300_000_000;
-      const risk = accountResults.length === 0
-        ? "Trung bình"
-        : accuracy < 60 || accountAwareness < 70
-          ? "Cao"
-          : accuracy < 80 || accountAwareness < 85
-            ? "Trung bình"
-            : "Thấp";
-      return {
-        username: account.username,
-        displayName: account.displayName,
-        createdAt: account.createdAt,
-        completed,
-        correct,
-        accuracy,
-        awareness: accountAwareness,
-        balance: accountBalance,
-        loss: Math.max(0, 300_000_000 - accountBalance),
-        risk,
-      };
-    });
-  }, [accounts, awareness, balance, hydrated, results, sessionUsername]);
-
   const analytics = useMemo(() => {
     const attempts = analyticsUsers.reduce((sum, user) => sum + user.completed, 0);
     const correct = analyticsUsers.reduce((sum, user) => sum + user.correct, 0);
@@ -333,14 +305,10 @@ export default function Home() {
     };
   }, [analyticsUsers]);
 
-  const scenarioRisks = useMemo(() => scenarios.map((scenario) => {
-    const attempts = analyticsUsers.reduce((sum, user) => {
-      const saved = user.username === sessionUsername ? results : readStoredProgress(progressKey(user.username))?.results ?? [];
-      return [...sum, ...saved.filter((result) => result.scenarioId === scenario.id)];
-    }, [] as Result[]);
-    const wrong = attempts.filter((result) => !result.correct).length;
-    return { ...scenario, attempts: attempts.length, wrong, rate: attempts.length ? Math.round((wrong / attempts.length) * 100) : 0 };
-  }).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [analyticsUsers, results, sessionUsername]);
+  const scenarioRisks = useMemo(() => dashboardScenarioRisks.map((risk) => ({
+    ...(scenarios.find((scenario) => scenario.id === risk.scenarioId) ?? scenarios[0]),
+    ...risk,
+  })).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [dashboardScenarioRisks]);
 
   const filtered = useMemo(() => scenarios.filter((item) => {
     const matchesDifficulty = difficulty === "Tất cả" || item.difficulty === difficulty;
@@ -368,47 +336,12 @@ export default function Home() {
     { icon: "⬢", name: "Chuyên gia Khiên Số", unlocked: safeIds.size === scenarios.length },
   ];
 
-  function chooseScenario(id: number) {
-    setSelectedId(id);
-    setAnswer(null);
-    setView("game");
-    if (window.innerWidth < 1050) document.querySelector(".stage")?.scrollIntoView({ behavior: "smooth" });
-  }
-
-  function submitChoice(index: number) {
-    if (answer !== null || completedIds.has(selected.id)) return;
-    const choice = selected.choices[index];
-    setAnswer(index);
-    setBalance((value) => Math.max(0, value + choice.moneyDelta));
-    setAwareness((value) => Math.max(0, Math.min(100, value + choice.awarenessDelta)));
-    setResults((value) => [...value, { scenarioId: selected.id, correct: choice.correct, choiceIndex: index }]);
-    if (!choice.correct) {
-      setLossNotice({
-        scenarioTitle: selected.title,
-        amountLost: Math.max(0, -choice.moneyDelta),
-        awarenessLost: Math.max(0, -choice.awarenessDelta),
-        balanceAfter: Math.max(0, balance + choice.moneyDelta),
-      });
-    }
-  }
-
-  function resetProgress() {
-    setBalance(300_000_000);
-    setAwareness(100);
-    setResults([]);
-    setAnswer(null);
-    setLossNotice(null);
-    setSelectedId(1);
-    setView("game");
-  }
-
-  function loadProgressForSession(username: string | null, displayName = "Người chơi ẩn danh") {
-    const saved = readStoredProgress(progressKey(username));
-    setBalance(saved?.balance ?? 300_000_000);
-    setAwareness(saved?.awareness ?? 100);
-    setResults(saved?.results ?? []);
-    setDark(saved?.dark ?? false);
-    setPlayerName(displayName);
+  function applyProgress(progress: StoredProgress, displayName = progress.playerName) {
+    setBalance(progress.balance);
+    setAwareness(progress.awareness);
+    setResults(progress.results);
+    setDark(localStorage.getItem(THEME_KEY) === "dark" || progress.dark);
+    setPlayerName(displayName || "Người chơi ẩn danh");
     setAnswer(null);
     setLossNotice(null);
     setSelectedId(1);
@@ -417,12 +350,159 @@ export default function Home() {
     setView("game");
   }
 
+  function loadGuestProgress() {
+    const saved = readStoredProgress(progressKey(null)) ?? readStoredProgress(LEGACY_PROGRESS_KEY) ?? {
+      balance: 300_000_000,
+      awareness: 100,
+      results: [],
+      dark: localStorage.getItem(THEME_KEY) === "dark",
+      playerName: "Người chơi ẩn danh",
+    };
+    setSessionAccount(null);
+    applyProgress(saved);
+  }
+
+  async function persistFullProgress(userId: string, progress: StoredProgress) {
+    const progressPromise = supabase.from("user_progress").upsert({
+      user_id: userId,
+      balance: progress.balance,
+      awareness: progress.awareness,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    const attemptsPromise = progress.results.length
+      ? supabase.from("test_attempts").upsert(progress.results.map((result) => ({
+          user_id: userId,
+          scenario_id: result.scenarioId,
+          choice_index: result.choiceIndex,
+          correct: result.correct,
+          balance_after: progress.balance,
+          awareness_after: progress.awareness,
+        })), { onConflict: "user_id,scenario_id" })
+      : Promise.resolve({ error: null });
+    const [progressResult, attemptsResult] = await Promise.all([progressPromise, attemptsPromise]);
+    if (progressResult.error || attemptsResult.error) throw progressResult.error ?? attemptsResult.error;
+  }
+
+  async function loadRemoteAccount(userId: string, email: string) {
+    setDataStatus("Đang đồng bộ dữ liệu…");
+    const [profileResult, progressResult, attemptsResult] = await Promise.all([
+      supabase.from("profiles").select("username, display_name, created_at").eq("id", userId).single(),
+      supabase.from("user_progress").select("balance, awareness").eq("user_id", userId).single(),
+      supabase.from("test_attempts").select("scenario_id, correct, choice_index").eq("user_id", userId).order("attempted_at"),
+    ]);
+    if (profileResult.error || progressResult.error || attemptsResult.error) {
+      setDataStatus("Không thể tải dữ liệu tài khoản. Vui lòng đăng nhập lại.");
+      return;
+    }
+    const profile = profileResult.data;
+    const remoteResults: Result[] = (attemptsResult.data ?? []).map((item) => ({
+      scenarioId: item.scenario_id,
+      correct: item.correct,
+      choiceIndex: item.choice_index,
+    }));
+    let progress: StoredProgress = {
+      balance: progressResult.data.balance,
+      awareness: progressResult.data.awareness,
+      results: remoteResults,
+      dark: localStorage.getItem(THEME_KEY) === "dark",
+      playerName: profile.display_name,
+    };
+
+    const legacy = readStoredProgress(progressKey(profile.username))
+      ?? readStoredProgress(progressKey(null))
+      ?? readStoredProgress(LEGACY_PROGRESS_KEY);
+    if (!remoteResults.length && legacy?.results.length) {
+      try {
+        progress = { ...legacy, dark: localStorage.getItem(THEME_KEY) === "dark", playerName: profile.display_name };
+        await persistFullProgress(userId, progress);
+        localStorage.setItem(`khien-so-migrated:${userId}`, "true");
+      } catch {
+        setDataStatus("Đã đăng nhập nhưng chưa thể chuyển tiến trình cũ lên máy chủ.");
+      }
+    }
+
+    setSessionAccount({
+      id: userId,
+      email,
+      username: profile.username,
+      displayName: profile.display_name,
+      createdAt: profile.created_at,
+    });
+    applyProgress(progress, profile.display_name);
+    setDataStatus("");
+  }
+
+  function chooseScenario(id: number) {
+    setSelectedId(id);
+    setAnswer(null);
+    setView("game");
+    if (window.innerWidth < 1050) document.querySelector(".stage")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function submitChoice(index: number) {
+    if (answer !== null || completedIds.has(selected.id)) return;
+    const choice = selected.choices[index];
+    const nextBalance = Math.max(0, balance + choice.moneyDelta);
+    const nextAwareness = Math.max(0, Math.min(100, awareness + choice.awarenessDelta));
+    setAnswer(index);
+    setBalance(nextBalance);
+    setAwareness(nextAwareness);
+    setResults((value) => [...value, { scenarioId: selected.id, correct: choice.correct, choiceIndex: index }]);
+    if (!choice.correct) {
+      setLossNotice({
+        scenarioTitle: selected.title,
+        amountLost: Math.max(0, -choice.moneyDelta),
+        awarenessLost: Math.max(0, -choice.awarenessDelta),
+        balanceAfter: nextBalance,
+      });
+    }
+    if (sessionAccount) {
+      const [attemptResult, progressResult] = await Promise.all([
+        supabase.from("test_attempts").upsert({
+          user_id: sessionAccount.id,
+          scenario_id: selected.id,
+          choice_index: index,
+          correct: choice.correct,
+          balance_after: nextBalance,
+          awareness_after: nextAwareness,
+        }, { onConflict: "user_id,scenario_id" }),
+        supabase.from("user_progress").upsert({
+          user_id: sessionAccount.id,
+          balance: nextBalance,
+          awareness: nextAwareness,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" }),
+      ]);
+      setDataStatus(attemptResult.error || progressResult.error ? "Kết quả chưa đồng bộ. Vui lòng kiểm tra kết nối." : "Đã lưu kết quả an toàn.");
+      window.setTimeout(() => setDataStatus(""), 2600);
+    }
+  }
+
+  async function resetProgress() {
+    setBalance(300_000_000);
+    setAwareness(100);
+    setResults([]);
+    setAnswer(null);
+    setLossNotice(null);
+    setSelectedId(1);
+    setView("game");
+    if (sessionAccount) {
+      const [attemptResult, progressResult] = await Promise.all([
+        supabase.from("test_attempts").delete().eq("user_id", sessionAccount.id),
+        supabase.from("user_progress").upsert({ user_id: sessionAccount.id, balance: 300_000_000, awareness: 100, updated_at: new Date().toISOString() }, { onConflict: "user_id" }),
+      ]);
+      setDataStatus(attemptResult.error || progressResult.error ? "Chưa thể đặt lại dữ liệu trên máy chủ." : "Đã đặt lại tiến trình.");
+    }
+  }
+
   function resetAuthForm() {
+    setAuthEmail("");
     setAuthUsername("");
     setAuthDisplayName("");
     setAuthPassword("");
     setAuthConfirmPassword("");
     setAuthError("");
+    setAuthNotice("");
     setAuthBusy(false);
   }
 
@@ -445,9 +525,15 @@ export default function Home() {
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const username = authUsername.trim().toLowerCase();
+    const email = authEmail.trim().toLowerCase();
     setAuthError("");
+    setAuthNotice("");
 
-    if (!/^[a-z0-9._-]{3,24}$/.test(username)) {
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setAuthError("Vui lòng nhập địa chỉ email hợp lệ.");
+      return;
+    }
+    if (authMode === "register" && !/^[a-z0-9._-]{3,24}$/.test(username)) {
       setAuthError("Tên đăng nhập cần 3–24 ký tự: chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới.");
       return;
     }
@@ -468,60 +554,58 @@ export default function Home() {
           setAuthError("Mật khẩu xác nhận chưa khớp.");
           return;
         }
-        if (accounts.some((account) => account.username === username)) {
-          setAuthError("Tên đăng nhập này đã tồn tại trên thiết bị.");
+        await supabase.auth.signOut({ scope: "local" });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: authPassword,
+          options: { data: { username, display_name: displayName } },
+        });
+        if (error) {
+          setAuthError(error.message.toLowerCase().includes("database")
+            ? "Email hoặc tên đăng nhập đã được sử dụng. Vui lòng chọn thông tin khác."
+            : error.message);
           return;
         }
-        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-        const salt = bytesToBase64(saltBytes);
-        const passwordHash = await hashPassword(authPassword, salt);
-        const nextAccounts = [...accounts, {
-          username,
-          displayName,
-          salt,
-          passwordHash,
-          createdAt: new Date().toISOString(),
-        }];
-        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(nextAccounts));
-        localStorage.setItem(SESSION_KEY, username);
-        setAccounts(nextAccounts);
-        setSessionUsername(username);
-        loadProgressForSession(username, displayName);
+        if (data.session && data.user) {
+          await loadRemoteAccount(data.user.id, data.user.email ?? email);
+          closeAuth();
+        } else {
+          setAuthPassword("");
+          setAuthConfirmPassword("");
+          setAuthNotice("Tài khoản đã được tạo. Hãy mở email xác nhận, sau đó quay lại đăng nhập.");
+        }
       } else {
-        const account = accounts.find((item) => item.username === username);
-        if (!account || await hashPassword(authPassword, account.salt) !== account.passwordHash) {
-          setAuthError("Tên đăng nhập hoặc mật khẩu không đúng.");
+        await supabase.auth.signOut({ scope: "local" });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
+        if (error || !data.user) {
+          setAuthError(error?.message ?? "Email hoặc mật khẩu không đúng.");
           return;
         }
-        localStorage.setItem(SESSION_KEY, account.username);
-        setSessionUsername(account.username);
-        loadProgressForSession(account.username, account.displayName);
+        await loadRemoteAccount(data.user.id, data.user.email ?? email);
+        closeAuth();
       }
-      closeAuth();
     } catch {
-      setAuthError("Không thể xử lý đăng nhập trên trình duyệt này. Vui lòng thử lại.");
+      setAuthError("Không thể kết nối dịch vụ tài khoản. Vui lòng thử lại.");
     } finally {
       setAuthBusy(false);
     }
   }
 
-  function closeProfile() {
+  async function closeProfile() {
     const displayName = playerName.trim() || "Người chơi ẩn danh";
     setPlayerName(displayName);
-    if (activeAccount) {
-      const nextAccounts = accounts.map((account) => account.username === activeAccount.username
-        ? { ...account, displayName }
-        : account);
-      setAccounts(nextAccounts);
-      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(nextAccounts));
+    if (sessionAccount) {
+      const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", sessionAccount.id);
+      if (error) setDataStatus("Không thể lưu tên hiển thị.");
+      else setSessionAccount({ ...sessionAccount, displayName });
     }
     setProfileOpen(false);
   }
 
-  function logout() {
-    localStorage.removeItem(SESSION_KEY);
-    setSessionUsername(null);
-    loadProgressForSession(null);
+  async function logout() {
+    await supabase.auth.signOut({ scope: "local" });
+    setSessionAccount(null);
+    loadGuestProgress();
     setProfileOpen(false);
   }
 
@@ -554,6 +638,7 @@ export default function Home() {
 
   const previousResult = results.find((result) => result.scenarioId === selected.id);
   const selectedAnswer = answer ?? previousResult?.choiceIndex ?? null;
+  const visibleDashboardStatus: DashboardStatus = sessionAccount ? dashboardStatus : "forbidden";
 
   return (
     <main className={dark ? "app dark" : "app"}>
@@ -571,7 +656,7 @@ export default function Home() {
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
-          {activeAccount ? (
+          {sessionAccount ? (
             <button className="profile-button" onClick={() => setProfileOpen(true)} aria-label={`Mở tài khoản của ${playerName}`}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
           ) : (
             <div className="auth-actions">
@@ -581,6 +666,7 @@ export default function Home() {
           )}
         </div>
       </header>
+      {dataStatus && <div className="sync-status" role="status" aria-live="polite">{dataStatus}</div>}
 
       {view === "game" && (
         <div className="game-shell">
@@ -674,7 +760,7 @@ export default function Home() {
 
       {view === "stats" && (
         <section className="content-page stats-page">
-          <div className="page-hero"><span className="eyebrow">HỒ SƠ PHÒNG VỆ</span><h1>{playerName}</h1><p>Tiến bộ của bạn được lưu riêng trên thiết bị này.</p></div>
+          <div className="page-hero"><span className="eyebrow">HỒ SƠ PHÒNG VỆ</span><h1>{playerName}</h1><p>{sessionAccount ? "Tiến bộ của bạn được đồng bộ an toàn giữa các thiết bị." : "Đăng nhập để đồng bộ tiến bộ giữa các thiết bị."}</p></div>
           <div className="stats-overview"><article><small>Kịch bản đã thử</small><strong>{results.length}</strong><span>/ {scenarios.length}</span></article><article><small>Xử lý an toàn</small><strong>{safeIds.size}</strong><span>{results.length ? Math.round((safeIds.size / results.length) * 100) : 0}% chính xác</span></article><article><small>Điểm phòng vệ</small><strong>{score}</strong><span>cấp {Math.floor(score / 500) + 1}</span></article><article><small>Tài sản còn lại</small><strong className="money-stat">{money.format(balance)}đ</strong><span>bảo toàn {Math.round((balance / 300_000_000) * 100)}%</span></article></div>
           <div className="achievement-section"><div><span className="eyebrow">BỘ SƯU TẬP</span><h2>Huy hiệu phòng vệ</h2></div><div className="achievement-grid">{unlockedBadges.map((badge) => <article className={badge.unlocked ? "unlocked" : ""} key={badge.name}><span>{badge.icon}</span><div><strong>{badge.name}</strong><small>{badge.unlocked ? "Đã mở khoá" : "Chưa mở khoá"}</small></div></article>)}</div></div>
           <button className="reset-button" onClick={resetProgress}>Đặt lại toàn bộ tiến trình</button>
@@ -692,46 +778,32 @@ export default function Home() {
       {view === "dashboard" && (
         <section className="content-page dashboard-page">
           <div className="dashboard-heading">
-            <div><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu mô phỏng của trình duyệt hiện tại.</p></div>
-            <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>
+            <div><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu tập trung của toàn bộ người dùng.</p></div>
+            {visibleDashboardStatus === "ready" && <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>}
           </div>
-          <div className="data-scope-note" role="note"><strong>Phạm vi dữ liệu:</strong> {analyticsUsers.length} tài khoản trên thiết bị này · Cập nhật theo thời gian thực · Không chứa mật khẩu hoặc dữ liệu ngân hàng.</div>
-
-          <div className="ciso-kpis">
-            <article><small>Người dùng đã đăng ký</small><strong>{analyticsUsers.length}</strong><span>{analytics.active} đã tham gia đào tạo</span></article>
-            <article><small>Tỷ lệ tham gia</small><strong>{analytics.participation}%</strong><span>{analytics.active}/{analyticsUsers.length || 0} người dùng hoạt động</span></article>
-            <article><small>Tỷ lệ xử lý an toàn</small><strong>{analytics.accuracy}%</strong><span>{analytics.correct}/{analytics.attempts} lượt đúng</span></article>
-            <article className={analytics.highRisk ? "risk-kpi" : ""}><small>Người dùng rủi ro cao</small><strong>{analytics.highRisk}</strong><span>Cần ưu tiên đào tạo lại</span></article>
-            <article><small>Tổn thất mô phỏng</small><strong className="dashboard-money">{money.format(analytics.totalLoss)}đ</strong><span>Tổng tác động từ lựa chọn sai</span></article>
-          </div>
-
-          <div className="dashboard-grid">
-            <article className="dashboard-card outcome-card">
-              <div className="dashboard-card-title"><div><small>HIỆU QUẢ ĐÀO TẠO</small><h2>Kết quả xử lý tình huống</h2></div><strong>{analytics.attempts} lượt</strong></div>
-              <div className="outcome-chart" aria-label={`${analytics.correct} lượt an toàn, ${Math.max(0, analytics.attempts - analytics.correct)} lượt mắc bẫy`}>
-                <div className="outcome-bar"><span style={{ width: `${analytics.accuracy}%` }} /></div>
-                <div className="outcome-legend"><span><i className="safe-dot" />An toàn <b>{analytics.correct}</b></span><span><i className="risk-dot" />Mắc bẫy <b>{Math.max(0, analytics.attempts - analytics.correct)}</b></span></div>
-              </div>
-            </article>
-            <article className="dashboard-card">
-              <div className="dashboard-card-title"><div><small>RỦI RO NỔI BẬT</small><h2>Kịch bản dễ mắc bẫy</h2></div></div>
-              <div className="risk-ranking">
-                {scenarioRisks.map((item, index) => <div key={item.id}><span>{index + 1}</span><div><strong>{item.title}</strong><small>{item.attempts ? `${item.wrong}/${item.attempts} lượt sai` : "Chưa có dữ liệu"}</small></div><b>{item.rate}%</b></div>)}
-              </div>
-            </article>
-          </div>
-
-          <article className="dashboard-card user-analysis">
-            <div className="dashboard-card-title"><div><small>PHÂN TÍCH NGƯỜI DÙNG</small><h2>Danh sách ưu tiên đào tạo</h2></div><span>Sắp xếp theo mức rủi ro</span></div>
-            <div className="analytics-table-wrap"><table><thead><tr><th>Người dùng</th><th>Tham gia</th><th>Chính xác</th><th>Cảnh giác</th><th>Tổn thất mô phỏng</th><th>Đánh giá</th></tr></thead><tbody>
-              {[...analyticsUsers].sort((a, b) => ({ Cao: 0, "Trung bình": 1, Thấp: 2 }[a.risk] - { Cao: 0, "Trung bình": 1, Thấp: 2 }[b.risk])).map((user) => <tr key={user.username}><td><strong>{user.displayName}</strong><small>@{user.username} · {new Date(user.createdAt).toLocaleDateString("vi-VN")}</small></td><td>{user.completed}/{scenarios.length}</td><td>{user.accuracy}%</td><td>{user.awareness}%</td><td>{money.format(user.loss)}đ</td><td><span className={`risk-label risk-${user.risk === "Cao" ? "high" : user.risk === "Thấp" ? "low" : "medium"}`}>{user.risk}</span></td></tr>)}
-              {!analyticsUsers.length && <tr><td colSpan={6} className="empty-table">Chưa có tài khoản để phân tích.</td></tr>}
-            </tbody></table></div>
-          </article>
+          {!sessionAccount && <div className="dashboard-gate"><BadgeIcon>◇</BadgeIcon><h2>Đăng nhập để truy cập Dashboard</h2><p>Dữ liệu tổng hợp chỉ dành cho tài khoản đã được IT Security cấp quyền CISO.</p><button className="primary-button" onClick={() => openAuth("login")}>Đăng nhập</button></div>}
+          {sessionAccount && visibleDashboardStatus === "loading" && <div className="dashboard-gate"><h2>Đang tải dữ liệu báo cáo…</h2></div>}
+          {sessionAccount && visibleDashboardStatus === "error" && <div className="dashboard-gate"><h2>Chưa thể tải Dashboard</h2><p>Vui lòng kiểm tra kết nối và thử lại.</p></div>}
+          {sessionAccount && visibleDashboardStatus === "forbidden" && <div className="dashboard-gate"><BadgeIcon>◇</BadgeIcon><h2>Tài khoản chưa có quyền CISO</h2><p>Dashboard tổng hợp được bảo vệ bằng phân quyền máy chủ. Hãy liên hệ IT Security để được cấp quyền.</p></div>}
+          {visibleDashboardStatus === "ready" && <>
+            <div className="data-scope-note" role="note"><strong>Phạm vi dữ liệu:</strong> {analyticsUsers.length} tài khoản trên hệ thống · Dữ liệu tập trung · Không chứa mật khẩu hoặc dữ liệu ngân hàng.</div>
+            <div className="ciso-kpis">
+              <article><small>Người dùng đã đăng ký</small><strong>{analyticsUsers.length}</strong><span>{analytics.active} đã tham gia đào tạo</span></article>
+              <article><small>Tỷ lệ tham gia</small><strong>{analytics.participation}%</strong><span>{analytics.active}/{analyticsUsers.length || 0} người dùng hoạt động</span></article>
+              <article><small>Tỷ lệ xử lý an toàn</small><strong>{analytics.accuracy}%</strong><span>{analytics.correct}/{analytics.attempts} lượt đúng</span></article>
+              <article className={analytics.highRisk ? "risk-kpi" : ""}><small>Người dùng rủi ro cao</small><strong>{analytics.highRisk}</strong><span>Cần ưu tiên đào tạo lại</span></article>
+              <article><small>Tổn thất mô phỏng</small><strong className="dashboard-money">{money.format(analytics.totalLoss)}đ</strong><span>Tổng tác động từ lựa chọn sai</span></article>
+            </div>
+            <div className="dashboard-grid">
+              <article className="dashboard-card outcome-card"><div className="dashboard-card-title"><div><small>HIỆU QUẢ ĐÀO TẠO</small><h2>Kết quả xử lý tình huống</h2></div><strong>{analytics.attempts} lượt</strong></div><div className="outcome-chart" aria-label={`${analytics.correct} lượt an toàn, ${Math.max(0, analytics.attempts - analytics.correct)} lượt mắc bẫy`}><div className="outcome-bar"><span style={{ width: `${analytics.accuracy}%` }} /></div><div className="outcome-legend"><span><i className="safe-dot" />An toàn <b>{analytics.correct}</b></span><span><i className="risk-dot" />Mắc bẫy <b>{Math.max(0, analytics.attempts - analytics.correct)}</b></span></div></div></article>
+              <article className="dashboard-card"><div className="dashboard-card-title"><div><small>RỦI RO NỔI BẬT</small><h2>Kịch bản dễ mắc bẫy</h2></div></div><div className="risk-ranking">{scenarioRisks.map((item, index) => <div key={item.id}><span>{index + 1}</span><div><strong>{item.title}</strong><small>{item.attempts ? `${item.wrong}/${item.attempts} lượt sai` : "Chưa có dữ liệu"}</small></div><b>{item.rate}%</b></div>)}</div></article>
+            </div>
+            <article className="dashboard-card user-analysis"><div className="dashboard-card-title"><div><small>PHÂN TÍCH NGƯỜI DÙNG</small><h2>Danh sách ưu tiên đào tạo</h2></div><span>Sắp xếp theo mức rủi ro</span></div><div className="analytics-table-wrap"><table><thead><tr><th>Người dùng</th><th>Tham gia</th><th>Chính xác</th><th>Cảnh giác</th><th>Tổn thất mô phỏng</th><th>Đánh giá</th></tr></thead><tbody>{analyticsUsers.map((user) => <tr key={user.username}><td><strong>{user.displayName}</strong><small>@{user.username} · {new Date(user.createdAt).toLocaleDateString("vi-VN")}</small></td><td>{user.completed}/{scenarios.length}</td><td>{user.accuracy}%</td><td>{user.awareness}%</td><td>{money.format(user.loss)}đ</td><td><span className={`risk-label risk-${user.risk === "Cao" ? "high" : user.risk === "Thấp" ? "low" : "medium"}`}>{user.risk}</span></td></tr>)}{!analyticsUsers.length && <tr><td colSpan={6} className="empty-table">Chưa có tài khoản để phân tích.</td></tr>}</tbody></table></div></article>
+          </>}
         </section>
       )}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>IT SECURITY</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu cá nhân thật. Tiến trình chỉ được lưu trên thiết bị của bạn.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>IT SECURITY</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu ngân hàng. Tài khoản và kết quả được bảo vệ trên Supabase.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
@@ -753,25 +825,27 @@ export default function Home() {
       <Modal open={authOpen} onClose={closeAuth} labelledBy="auth-title" className="auth-modal">
         <button className="modal-close" aria-label="Đóng đăng nhập" onClick={closeAuth}>×</button>
         <span className="modal-symbol">H</span>
-        <span className="eyebrow">KHIÊN SỐ · TÀI KHOẢN THIẾT BỊ</span>
+        <span className="eyebrow">KHIÊN SỐ · TÀI KHOẢN ĐỒNG BỘ</span>
         <div className="auth-tabs" aria-label="Chọn hình thức tài khoản">
           <button type="button" aria-pressed={authMode === "login"} className={authMode === "login" ? "active" : ""} onClick={() => switchAuthMode("login")}>Đăng nhập</button>
           <button type="button" aria-pressed={authMode === "register"} className={authMode === "register" ? "active" : ""} onClick={() => switchAuthMode("register")}>Đăng ký</button>
         </div>
         <h2 id="auth-title">{authMode === "login" ? "Chào mừng trở lại" : "Tạo hồ sơ phòng vệ"}</h2>
-        <p className="auth-intro">Tài khoản mô phỏng chỉ được lưu trên trình duyệt hiện tại. Không sử dụng tên đăng nhập hoặc mật khẩu ngân hàng thật.</p>
+        <p className="auth-intro">Đăng nhập để lưu kết quả và tiếp tục trên thiết bị khác. Không sử dụng mật khẩu ngân hàng thật.</p>
         <form className="auth-form" onSubmit={submitAuth}>
           {authMode === "register" && <label><span>Tên hiển thị</span><input autoComplete="name" value={authDisplayName} maxLength={32} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Ví dụ: Minh An" /></label>}
-          <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="minhan_01" autoCapitalize="none" spellCheck={false} /></label>
+          {authMode === "register" && <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="minhan_01" autoCapitalize="none" spellCheck={false} /></label>}
+          <label><span>Email</span><input type="email" autoComplete="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="ten@hdbank.com.vn" autoCapitalize="none" spellCheck={false} /></label>
           <label><span>Mật khẩu</span><input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Ít nhất 8 ký tự" /></label>
           {authMode === "register" && <label><span>Xác nhận mật khẩu</span><input type="password" autoComplete="new-password" value={authConfirmPassword} onChange={(event) => setAuthConfirmPassword(event.target.value)} placeholder="Nhập lại mật khẩu" /></label>}
           {authError && <p className="auth-error" role="alert">{authError}</p>}
+          {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}
           <button className="primary-button auth-submit" type="submit" disabled={authBusy}>{authBusy ? "Đang bảo vệ tài khoản…" : authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</button>
         </form>
-        <p className="auth-security-note"><b>Riêng tư:</b> Mật khẩu được băm trước khi lưu. Tài khoản không đồng bộ sang thiết bị khác.</p>
+        <p className="auth-security-note"><b>Bảo mật:</b> Supabase Auth xử lý mật khẩu; website chỉ dùng khóa công khai và RLS để giới hạn dữ liệu theo từng tài khoản.</p>
       </Modal>
 
-      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">TÀI KHOẢN ĐÃ ĐĂNG NHẬP</span><h2 id="profile-title">Hồ sơ của bạn</h2><p className="account-username">@{activeAccount?.username}</p><label className="profile-name-field"><span>Tên hiển thị</span><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") closeProfile(); }} /></label><div className="profile-actions"><button className="primary-button" onClick={closeProfile}>Lưu thay đổi</button><button className="logout-button" onClick={logout}>Đăng xuất</button></div><p className="profile-note">Tiến trình chơi và tài khoản chỉ được lưu trên thiết bị này.</p></Modal>
+      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">TÀI KHOẢN ĐÃ ĐĂNG NHẬP</span><h2 id="profile-title">Hồ sơ của bạn</h2><p className="account-username">@{sessionAccount?.username} · {sessionAccount?.email}</p><label className="profile-name-field"><span>Tên hiển thị</span><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void closeProfile(); }} /></label><div className="profile-actions"><button className="primary-button" onClick={closeProfile}>Lưu thay đổi</button><button className="logout-button" onClick={logout}>Đăng xuất</button></div><p className="profile-note">Tiến trình được đồng bộ an toàn và phiên cũ trên trình duyệt được xoá khi đổi tài khoản.</p></Modal>
     </main>
   );
 }
