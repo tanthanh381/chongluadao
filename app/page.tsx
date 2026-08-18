@@ -522,6 +522,13 @@ export default function Home() {
     setAuthMode(mode);
   }
 
+  async function continueAsGuest() {
+    await supabase.auth.signOut({ scope: "local" });
+    setSessionAccount(null);
+    loadGuestProgress();
+    closeAuth();
+  }
+
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const username = authUsername.trim().toLowerCase();
@@ -660,6 +667,7 @@ export default function Home() {
             <button className="profile-button" onClick={() => setProfileOpen(true)} aria-label={`Mở tài khoản của ${playerName}`}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
           ) : (
             <div className="auth-actions">
+              <span className="guest-badge">Khách</span>
               <button className="login-button" onClick={() => openAuth("login")}>Đăng nhập</button>
               <button className="signup-button" onClick={() => openAuth("register")}>Đăng ký</button>
             </div>
@@ -693,6 +701,7 @@ export default function Home() {
           </aside>
 
           <section className="stage">
+            {!sessionAccount && <div className="guest-mode-note" role="note"><span><b>Đang tham gia với tư cách khách</b><small>Không cần tài khoản · Kết quả chỉ lưu trên thiết bị này</small></span><button onClick={() => openAuth("register")}>Đăng ký để đồng bộ</button></div>}
             <div className="status-grid">
               <div className="status-card"><BadgeIcon>₫</BadgeIcon><span><small>Tài sản an toàn</small><strong>{money.format(balance)}đ</strong></span></div>
               <div className="status-card"><BadgeIcon>⌁</BadgeIcon><span><small>Mức cảnh giác</small><strong>{awareness}%</strong></span><div className="meter"><i style={{ width: `${awareness}%` }} /></div></div>
@@ -841,8 +850,10 @@ export default function Home() {
           {authError && <p className="auth-error" role="alert">{authError}</p>}
           {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}
           <button className="primary-button auth-submit" type="submit" disabled={authBusy}>{authBusy ? "Đang bảo vệ tài khoản…" : authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</button>
+          <div className="auth-or" aria-hidden="true"><span>hoặc</span></div>
+          <button className="guest-continue" type="button" onClick={continueAsGuest}>Tiếp tục với tư cách khách</button>
         </form>
-        <p className="auth-security-note"><b>Bảo mật:</b> Supabase Auth xử lý mật khẩu; website chỉ dùng khóa công khai và RLS để giới hạn dữ liệu theo từng tài khoản.</p>
+        <p className="auth-security-note"><b>Chế độ khách:</b> Không tạo tài khoản và không gửi kết quả lên máy chủ. Supabase chỉ được dùng khi bạn chủ động đăng ký hoặc đăng nhập.</p>
       </Modal>
 
       <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">TÀI KHOẢN ĐÃ ĐĂNG NHẬP</span><h2 id="profile-title">Hồ sơ của bạn</h2><p className="account-username">@{sessionAccount?.username} · {sessionAccount?.email}</p><label className="profile-name-field"><span>Tên hiển thị</span><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void closeProfile(); }} /></label><div className="profile-actions"><button className="primary-button" onClick={closeProfile}>Lưu thay đổi</button><button className="logout-button" onClick={logout}>Đăng xuất</button></div><p className="profile-note">Tiến trình được đồng bộ an toàn và phiên cũ trên trình duyệt được xoá khi đổi tài khoản.</p></Modal>

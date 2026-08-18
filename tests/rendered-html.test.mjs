@@ -28,6 +28,7 @@ test("server renders the Khiên Số experience", async () => {
   assert.match(html, /Mô phỏng/);
   assert.match(html, /Đăng nhập/);
   assert.match(html, /Đăng ký/);
+  assert.match(html, /Đang tham gia với tư cách khách/);
   assert.match(html, />Dashboard</);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
@@ -51,6 +52,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /supabase\.auth\.signUp/);
   assert.match(page, /supabase\.auth\.signInWithPassword/);
   assert.match(page, /supabase\.auth\.signOut\(\{ scope: "local" \}\)/);
+  assert.match(page, /continueAsGuest/);
+  assert.match(page, /Tiếp tục với tư cách khách/);
   assert.match(page, /test_attempts/);
   assert.match(page, /user_progress/);
   assert.match(page, /get_ciso_dashboard/);

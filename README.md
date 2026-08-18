@@ -14,6 +14,7 @@
 - Cẩm nang xử lý khẩn cấp theo quy tắc Dừng — Kiểm — Báo
 - Chế độ sáng/tối và giao diện responsive
 - Đăng ký/đăng nhập email bằng Supabase Auth
+- Tham gia ngay với tư cách khách, không cần đăng ký và không tạo bản ghi Supabase
 - Đồng bộ hồ sơ, tiến trình và kết quả kiểm tra giữa các thiết bị
 - Dashboard dữ liệu tập trung, chỉ mở cho tài khoản được cấp quyền CISO
 - Row Level Security bảo đảm người dùng thường chỉ đọc/ghi dữ liệu của chính mình
