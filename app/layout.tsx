@@ -1,25 +1,32 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://tanthanh381.github.io/chongluadao/"),
-  title: "Khiên Số | Trò chơi cộng đồng nhận diện lừa đảo",
-  description: "Dự án cộng đồng độc lập giúp luyện phản xạ nhận diện và xử lý các tình huống lừa đảo trực tuyến.",
-  icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-  openGraph: {
-    title: "Khiên Số | Trò chơi cộng đồng nhận diện lừa đảo",
-    description: "Chơi ẩn danh, học qua tình huống mô phỏng và xây dựng phản xạ phòng vệ số.",
-    type: "website",
-    locale: "vi_VN",
-    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Khiên Số — Dự án cộng đồng độc lập" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Khiên Số | Trò chơi cộng đồng nhận diện lừa đảo",
-    description: "Chơi ẩn danh và luyện phản xạ phòng vệ số qua các tình huống mô phỏng.",
-    images: ["/og.png"],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}`;
+
+  return {
+    title: "Khiên Số | HDBank - IT Security",
+    description: "Chương trình mô phỏng tương tác của HDBank - IT Security, giúp nhận diện và xử lý các kịch bản lừa đảo trực tuyến phổ biến.",
+    icons: { icon: "/favicon.png", shortcut: "/favicon.png" },
+    openGraph: {
+      title: "Khiên Số | HDBank - IT Security",
+      description: "Học để không thành con mồi — thử sức với các tình huống lừa đảo và xây dựng phản xạ phòng vệ số.",
+      type: "website",
+      locale: "vi_VN",
+      images: [{ url: `${origin}/og.png`, width: 1731, height: 909, alt: "Khiên Số — HDBank IT Security" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Khiên Số | HDBank - IT Security",
+      description: "Học để không thành con mồi — chương trình mô phỏng giúp xây dựng phản xạ phòng vệ số.",
+      images: [`${origin}/og.png`],
+    },
+  };
+}
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
