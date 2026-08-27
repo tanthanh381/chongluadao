@@ -1,26 +1,38 @@
 # Khiên Số
 
-**Khiên Số** là chương trình mô phỏng tương tác của **HDBank - IT Security**, giúp người chơi hình thành phản xạ trước các thủ đoạn lừa đảo trực tuyến phổ biến.
+**Khiên Số** là trò chơi cộng đồng độc lập giúp người chơi luyện phản xạ nhận diện lừa đảo trực tuyến qua các tình huống mô phỏng.
 
-🌐 Bản public: [https://tanthanh381.github.io/chongluadao/](https://tanthanh381.github.io/chongluadao/)
+🌐 Trải nghiệm công khai: [https://tanthanh381.github.io/chongluadao/](https://tanthanh381.github.io/chongluadao/)
+
+## Định vị
+
+- Dự án giáo dục cộng đồng, không đại diện cho bất kỳ ngân hàng hoặc tổ chức nào
+- Không phải website giao dịch và không cung cấp tư vấn pháp lý hoặc tài chính
+- Không yêu cầu đăng ký tài khoản
+- Không thu thập họ tên, email, số điện thoại hoặc dữ liệu ngân hàng
+- Không gửi kết quả chơi lên máy chủ
+- Tiến trình chỉ được lưu cục bộ trong trình duyệt của người chơi
 
 ## Tính năng
 
 - 10 kịch bản phân nhánh theo 4 cấp độ khó
-- Hệ thống tài sản, cảnh giác và điểm phòng vệ
+- Hệ thống tài sản mô phỏng, cảnh giác và điểm phòng vệ
 - Phản hồi giải thích sau từng lựa chọn
 - Tìm kiếm và lọc tình huống
-- Chứng cứ, huy hiệu, chuỗi thành tích và thống kê
-- Cẩm nang xử lý khẩn cấp theo quy tắc Dừng — Kiểm — Báo
+- Chứng cứ, huy hiệu, chuỗi thành tích và thống kê ẩn danh
+- Cẩm nang xử lý theo quy tắc Dừng — Kiểm — Báo
 - Chế độ sáng/tối và giao diện responsive
-- Đăng ký/đăng nhập email bằng Supabase Auth
-- Tham gia ngay với tư cách khách, không cần đăng ký và không tạo bản ghi Supabase
-- Đồng bộ hồ sơ, tiến trình và kết quả kiểm tra giữa các thiết bị
-- Dashboard dữ liệu tập trung, chỉ mở cho tài khoản được cấp quyền CISO
-- Row Level Security bảo đảm người dùng thường chỉ đọc/ghi dữ liệu của chính mình
-- `localStorage` chỉ dùng cho giao diện và tiến trình khách chưa đăng nhập
-- Không yêu cầu hoặc thu thập dữ liệu ngân hàng
-- Bộ nhận diện HDBank chính thức với màu đỏ `#BE1128`, vàng `#FFDC00` và logo từ hdbank.com.vn
+- Trang giới thiệu, điều khoản sử dụng và chính sách quyền riêng tư
+
+## Quyền riêng tư
+
+Website chỉ lưu các trường sau trong `localStorage` của trình duyệt:
+
+- Tài sản và mức cảnh giác trong trò chơi
+- Các lựa chọn mô phỏng và huy hiệu đã mở
+- Chế độ giao diện sáng/tối
+
+Người chơi có thể chọn **Đặt lại toàn bộ tiến trình** hoặc xóa dữ liệu website trong trình duyệt để xóa toàn bộ dữ liệu cục bộ. Website không sử dụng hệ thống tài khoản, cơ sở dữ liệu người dùng hoặc Dashboard tập trung.
 
 ## Chạy cục bộ
 
@@ -33,31 +45,19 @@ pnpm run dev
 
 Mở `http://localhost:3000`.
 
-## Kiểm thử và build
+## Kiểm thử và phát hành
 
 ```bash
-pnpm run build
-node --test tests/rendered-html.test.mjs
+pnpm run test
+pnpm run build:pages
 ```
+
+GitHub Pages được phát hành từ bản build tĩnh trong nhánh `gh-pages`.
 
 ## Công nghệ
 
-React 19, TypeScript, vinext/Vite, Supabase Auth/Postgres và Cloudflare Workers-compatible output.
+React 19, TypeScript, vinext/Vite và đầu ra tương thích Cloudflare Workers/GitHub Pages.
 
-## Dữ liệu và phân quyền
+## Lưu ý an toàn
 
-Cấu trúc cơ sở dữ liệu nằm tại `supabase/schema.sql`. Website chỉ chứa khóa Supabase publishable dành cho trình duyệt; không chứa secret key hoặc `service_role`.
-
-Để cấp quyền Dashboard cho một tài khoản đã xác nhận email, chạy bằng SQL Editor của Supabase với email quản trị thực tế:
-
-```sql
-insert into private.app_admins (user_id)
-select id from auth.users where email = 'ciso@example.com'
-on conflict (user_id) do nothing;
-```
-
-Trong Supabase Authentication → URL Configuration, đặt Site URL là `https://tanthanh381.github.io/chongluadao/` và thêm cùng URL vào Redirect URLs để liên kết xác nhận email quay lại đúng website.
-
-## Lưu ý
-
-Đây là sản phẩm giáo dục mô phỏng. Khi đã phát sinh thiệt hại, hãy liên hệ ngân hàng để khoá giao dịch, lưu bằng chứng và trình báo cơ quan công an gần nhất.
+Không nhập mật khẩu, OTP, số tài khoản, CCCD, thông tin khách hàng hoặc dữ liệu bí mật vào website. Khi đã phát sinh sự cố thật, hãy dừng giao dịch, liên hệ tổ chức liên quan qua kênh chính thức, lưu bằng chứng và trình báo cơ quan chức năng gần nhất.
