@@ -1,13 +1,10 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- this component also ships through a plain Vite/GitHub Pages build */
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Difficulty, knowledgeCards, scenarios } from "./data";
-import { supabase } from "./supabase";
 
 type Result = { scenarioId: number; correct: boolean; choiceIndex: number };
-type View = "game" | "knowledge" | "stats" | "evidence" | "dashboard";
+type View = "game" | "knowledge" | "stats" | "evidence" | "about" | "privacy";
 type StoredProgress = {
   balance: number;
   awareness: number;
@@ -15,41 +12,16 @@ type StoredProgress = {
   dark: boolean;
   playerName: string;
 };
-type SessionAccount = {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  createdAt: string;
-};
-type AuthMode = "login" | "register";
 type LossNotice = {
   scenarioTitle: string;
   amountLost: number;
   awarenessLost: number;
   balanceAfter: number;
 };
-type AnalyticsUser = {
-  username: string;
-  displayName: string;
-  createdAt: string;
-  completed: number;
-  correct: number;
-  accuracy: number;
-  awareness: number;
-  balance: number;
-  loss: number;
-  risk: "Thấp" | "Trung bình" | "Cao";
-};
-type DashboardStatus = "idle" | "loading" | "ready" | "forbidden" | "error";
-type ScenarioRisk = { scenarioId: number; attempts: number; wrong: number; rate: number };
-
 const LEGACY_PROGRESS_KEY = "khien-so-progress";
 const THEME_KEY = "khien-so-theme";
 
-function progressKey(username: string | null) {
-  return `khien-so-progress:${username ?? "guest"}`;
-}
+const LOCAL_PROGRESS_KEY = "khien-so-progress:anonymous";
 
 const money = new Intl.NumberFormat("vi-VN");
 const difficulties: Array<"Tất cả" | Difficulty> = ["Tất cả", "Dễ", "Trung bình", "Khó", "Rất khó"];
@@ -186,130 +158,40 @@ export default function Home() {
   const [answer, setAnswer] = useState<number | null>(null);
   const [dark, setDark] = useState(false);
   const [guide, setGuide] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authDisplayName, setAuthDisplayName] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [authNotice, setAuthNotice] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
   const [lossNotice, setLossNotice] = useState<LossNotice | null>(null);
-  const [sessionAccount, setSessionAccount] = useState<SessionAccount | null>(null);
-  const [dataStatus, setDataStatus] = useState("");
-  const [analyticsUsers, setAnalyticsUsers] = useState<AnalyticsUser[]>([]);
-  const [dashboardStatus, setDashboardStatus] = useState<DashboardStatus>("idle");
-  const [dashboardScenarioRisks, setDashboardScenarioRisks] = useState<ScenarioRisk[]>([]);
   const [playerName, setPlayerName] = useState("Người chơi ẩn danh");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      if (data.session?.user) await loadRemoteAccount(data.session.user.id, data.session.user.email ?? "");
-      else loadGuestProgress();
-      if (active) setHydrated(true);
-    };
-    void load();
-
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      if (event === "SIGNED_OUT") {
-        setSessionAccount(null);
-        loadGuestProgress();
-        return;
+    const timer = window.setTimeout(() => {
+      const saved = readStoredProgress(LOCAL_PROGRESS_KEY)
+        ?? readStoredProgress("khien-so-progress:guest")
+        ?? readStoredProgress(LEGACY_PROGRESS_KEY);
+      if (saved) {
+        setBalance(saved.balance);
+        setAwareness(saved.awareness);
+        setResults(saved.results);
+        setDark(localStorage.getItem(THEME_KEY) === "dark" || saved.dark);
+        setPlayerName(saved.playerName || "Người chơi ẩn danh");
+      } else {
+        setDark(localStorage.getItem(THEME_KEY) === "dark");
       }
-      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
-        window.setTimeout(() => void loadRemoteAccount(session.user.id, session.user.email ?? ""), 0);
-      }
-    });
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
-  // Supabase is a singleton and these loader functions intentionally read the
-  // latest browser state when auth emits an event.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
-    if (!sessionAccount) localStorage.setItem(progressKey(null), JSON.stringify({ balance, awareness, results, dark, playerName }));
-  }, [balance, awareness, results, dark, playerName, hydrated, sessionAccount]);
-
-  useEffect(() => {
-    if (view !== "dashboard") return;
-    if (!sessionAccount) return;
-    let active = true;
-    void (async () => {
-      await Promise.resolve();
-      if (!active) return;
-      setDashboardStatus("loading");
-      const { data, error } = await supabase.rpc("get_ciso_dashboard");
-      if (!active) return;
-      if (error?.code === "42501") {
-        setDashboardStatus("forbidden");
-        return;
-      }
-      if (error || !data || typeof data !== "object") {
-        setDashboardStatus("error");
-        return;
-      }
-      const payload = data as { users?: Array<Record<string, unknown>>; scenarios?: Array<Record<string, unknown>> };
-      setAnalyticsUsers((payload.users ?? []).map((user) => ({
-        username: String(user.username ?? ""),
-        displayName: String(user.display_name ?? ""),
-        createdAt: String(user.created_at ?? ""),
-        completed: Number(user.completed ?? 0),
-        correct: Number(user.correct ?? 0),
-        accuracy: Number(user.accuracy ?? 0),
-        awareness: Number(user.awareness ?? 100),
-        balance: Number(user.balance ?? 300_000_000),
-        loss: Number(user.loss ?? 0),
-        risk: user.risk === "Cao" || user.risk === "Thấp" ? user.risk : "Trung bình",
-      })));
-      setDashboardScenarioRisks((payload.scenarios ?? []).map((item) => ({
-        scenarioId: Number(item.scenario_id ?? 0),
-        attempts: Number(item.attempts ?? 0),
-        wrong: Number(item.wrong ?? 0),
-        rate: Number(item.rate ?? 0),
-      })));
-      setDashboardStatus("ready");
-    })();
-    return () => { active = false; };
-  }, [view, sessionAccount]);
+    localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify({ balance, awareness, results, dark, playerName }));
+  }, [balance, awareness, results, dark, playerName, hydrated]);
 
   const selected = scenarios.find((item) => item.id === selectedId) ?? scenarios[0];
   const completedIds = new Set(results.map((result) => result.scenarioId));
   const safeIds = new Set(results.filter((result) => result.correct).map((result) => result.scenarioId));
   const evidence = scenarios.filter((item) => safeIds.has(item.id));
   const score = results.reduce((total, result) => total + (result.correct ? 120 : 20), 0);
-  const analytics = useMemo(() => {
-    const attempts = analyticsUsers.reduce((sum, user) => sum + user.completed, 0);
-    const correct = analyticsUsers.reduce((sum, user) => sum + user.correct, 0);
-    const active = analyticsUsers.filter((user) => user.completed > 0).length;
-    return {
-      active,
-      participation: analyticsUsers.length ? Math.round((active / analyticsUsers.length) * 100) : 0,
-      attempts,
-      correct,
-      accuracy: attempts ? Math.round((correct / attempts) * 100) : 0,
-      highRisk: analyticsUsers.filter((user) => user.risk === "Cao").length,
-      totalLoss: analyticsUsers.reduce((sum, user) => sum + user.loss, 0),
-    };
-  }, [analyticsUsers]);
-
-  const scenarioRisks = useMemo(() => dashboardScenarioRisks.map((risk) => ({
-    ...(scenarios.find((scenario) => scenario.id === risk.scenarioId) ?? scenarios[0]),
-    ...risk,
-  })).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [dashboardScenarioRisks]);
-
   const filtered = useMemo(() => scenarios.filter((item) => {
     const matchesDifficulty = difficulty === "Tất cả" || item.difficulty === difficulty;
     const needle = query.trim().toLowerCase();
@@ -336,102 +218,6 @@ export default function Home() {
     { icon: "⬢", name: "Chuyên gia Khiên Số", unlocked: safeIds.size === scenarios.length },
   ];
 
-  function applyProgress(progress: StoredProgress, displayName = progress.playerName) {
-    setBalance(progress.balance);
-    setAwareness(progress.awareness);
-    setResults(progress.results);
-    setDark(localStorage.getItem(THEME_KEY) === "dark" || progress.dark);
-    setPlayerName(displayName || "Người chơi ẩn danh");
-    setAnswer(null);
-    setLossNotice(null);
-    setSelectedId(1);
-    setDifficulty("Tất cả");
-    setQuery("");
-    setView("game");
-  }
-
-  function loadGuestProgress() {
-    const saved = readStoredProgress(progressKey(null)) ?? readStoredProgress(LEGACY_PROGRESS_KEY) ?? {
-      balance: 300_000_000,
-      awareness: 100,
-      results: [],
-      dark: localStorage.getItem(THEME_KEY) === "dark",
-      playerName: "Người chơi ẩn danh",
-    };
-    setSessionAccount(null);
-    applyProgress(saved);
-  }
-
-  async function persistFullProgress(userId: string, progress: StoredProgress) {
-    const progressPromise = supabase.from("user_progress").upsert({
-      user_id: userId,
-      balance: progress.balance,
-      awareness: progress.awareness,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
-    const attemptsPromise = progress.results.length
-      ? supabase.from("test_attempts").upsert(progress.results.map((result) => ({
-          user_id: userId,
-          scenario_id: result.scenarioId,
-          choice_index: result.choiceIndex,
-          correct: result.correct,
-          balance_after: progress.balance,
-          awareness_after: progress.awareness,
-        })), { onConflict: "user_id,scenario_id" })
-      : Promise.resolve({ error: null });
-    const [progressResult, attemptsResult] = await Promise.all([progressPromise, attemptsPromise]);
-    if (progressResult.error || attemptsResult.error) throw progressResult.error ?? attemptsResult.error;
-  }
-
-  async function loadRemoteAccount(userId: string, email: string) {
-    setDataStatus("Đang đồng bộ dữ liệu…");
-    const [profileResult, progressResult, attemptsResult] = await Promise.all([
-      supabase.from("profiles").select("username, display_name, created_at").eq("id", userId).single(),
-      supabase.from("user_progress").select("balance, awareness").eq("user_id", userId).single(),
-      supabase.from("test_attempts").select("scenario_id, correct, choice_index").eq("user_id", userId).order("attempted_at"),
-    ]);
-    if (profileResult.error || progressResult.error || attemptsResult.error) {
-      setDataStatus("Không thể tải dữ liệu tài khoản. Vui lòng đăng nhập lại.");
-      return;
-    }
-    const profile = profileResult.data;
-    const remoteResults: Result[] = (attemptsResult.data ?? []).map((item) => ({
-      scenarioId: item.scenario_id,
-      correct: item.correct,
-      choiceIndex: item.choice_index,
-    }));
-    let progress: StoredProgress = {
-      balance: progressResult.data.balance,
-      awareness: progressResult.data.awareness,
-      results: remoteResults,
-      dark: localStorage.getItem(THEME_KEY) === "dark",
-      playerName: profile.display_name,
-    };
-
-    const legacy = readStoredProgress(progressKey(profile.username))
-      ?? readStoredProgress(progressKey(null))
-      ?? readStoredProgress(LEGACY_PROGRESS_KEY);
-    if (!remoteResults.length && legacy?.results.length) {
-      try {
-        progress = { ...legacy, dark: localStorage.getItem(THEME_KEY) === "dark", playerName: profile.display_name };
-        await persistFullProgress(userId, progress);
-        localStorage.setItem(`khien-so-migrated:${userId}`, "true");
-      } catch {
-        setDataStatus("Đã đăng nhập nhưng chưa thể chuyển tiến trình cũ lên máy chủ.");
-      }
-    }
-
-    setSessionAccount({
-      id: userId,
-      email,
-      username: profile.username,
-      displayName: profile.display_name,
-      createdAt: profile.created_at,
-    });
-    applyProgress(progress, profile.display_name);
-    setDataStatus("");
-  }
-
   function chooseScenario(id: number) {
     setSelectedId(id);
     setAnswer(null);
@@ -439,7 +225,7 @@ export default function Home() {
     if (window.innerWidth < 1050) document.querySelector(".stage")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  async function submitChoice(index: number) {
+  function submitChoice(index: number) {
     if (answer !== null || completedIds.has(selected.id)) return;
     const choice = selected.choices[index];
     const nextBalance = Math.max(0, balance + choice.moneyDelta);
@@ -456,29 +242,9 @@ export default function Home() {
         balanceAfter: nextBalance,
       });
     }
-    if (sessionAccount) {
-      const [attemptResult, progressResult] = await Promise.all([
-        supabase.from("test_attempts").upsert({
-          user_id: sessionAccount.id,
-          scenario_id: selected.id,
-          choice_index: index,
-          correct: choice.correct,
-          balance_after: nextBalance,
-          awareness_after: nextAwareness,
-        }, { onConflict: "user_id,scenario_id" }),
-        supabase.from("user_progress").upsert({
-          user_id: sessionAccount.id,
-          balance: nextBalance,
-          awareness: nextAwareness,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" }),
-      ]);
-      setDataStatus(attemptResult.error || progressResult.error ? "Kết quả chưa đồng bộ. Vui lòng kiểm tra kết nối." : "Đã lưu kết quả an toàn.");
-      window.setTimeout(() => setDataStatus(""), 2600);
-    }
   }
 
-  async function resetProgress() {
+  function resetProgress() {
     setBalance(300_000_000);
     setAwareness(100);
     setResults([]);
@@ -486,134 +252,6 @@ export default function Home() {
     setLossNotice(null);
     setSelectedId(1);
     setView("game");
-    if (sessionAccount) {
-      const [attemptResult, progressResult] = await Promise.all([
-        supabase.from("test_attempts").delete().eq("user_id", sessionAccount.id),
-        supabase.from("user_progress").upsert({ user_id: sessionAccount.id, balance: 300_000_000, awareness: 100, updated_at: new Date().toISOString() }, { onConflict: "user_id" }),
-      ]);
-      setDataStatus(attemptResult.error || progressResult.error ? "Chưa thể đặt lại dữ liệu trên máy chủ." : "Đã đặt lại tiến trình.");
-    }
-  }
-
-  function resetAuthForm() {
-    setAuthEmail("");
-    setAuthUsername("");
-    setAuthDisplayName("");
-    setAuthPassword("");
-    setAuthConfirmPassword("");
-    setAuthError("");
-    setAuthNotice("");
-    setAuthBusy(false);
-  }
-
-  function closeAuth() {
-    resetAuthForm();
-    setAuthOpen(false);
-  }
-
-  function openAuth(mode: AuthMode) {
-    resetAuthForm();
-    setAuthMode(mode);
-    setAuthOpen(true);
-  }
-
-  function switchAuthMode(mode: AuthMode) {
-    resetAuthForm();
-    setAuthMode(mode);
-  }
-
-  async function continueAsGuest() {
-    await supabase.auth.signOut({ scope: "local" });
-    setSessionAccount(null);
-    loadGuestProgress();
-    closeAuth();
-  }
-
-  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const username = authUsername.trim().toLowerCase();
-    const email = authEmail.trim().toLowerCase();
-    setAuthError("");
-    setAuthNotice("");
-
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setAuthError("Vui lòng nhập địa chỉ email hợp lệ.");
-      return;
-    }
-    if (authMode === "register" && !/^[a-z0-9._-]{3,24}$/.test(username)) {
-      setAuthError("Tên đăng nhập cần 3–24 ký tự: chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới.");
-      return;
-    }
-    if (authPassword.length < 8) {
-      setAuthError("Mật khẩu cần ít nhất 8 ký tự.");
-      return;
-    }
-
-    setAuthBusy(true);
-    try {
-      if (authMode === "register") {
-        const displayName = authDisplayName.trim();
-        if (displayName.length < 2 || displayName.length > 32) {
-          setAuthError("Tên hiển thị cần từ 2 đến 32 ký tự.");
-          return;
-        }
-        if (authPassword !== authConfirmPassword) {
-          setAuthError("Mật khẩu xác nhận chưa khớp.");
-          return;
-        }
-        await supabase.auth.signOut({ scope: "local" });
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password: authPassword,
-          options: { data: { username, display_name: displayName } },
-        });
-        if (error) {
-          setAuthError(error.message.toLowerCase().includes("database")
-            ? "Email hoặc tên đăng nhập đã được sử dụng. Vui lòng chọn thông tin khác."
-            : error.message);
-          return;
-        }
-        if (data.session && data.user) {
-          await loadRemoteAccount(data.user.id, data.user.email ?? email);
-          closeAuth();
-        } else {
-          setAuthPassword("");
-          setAuthConfirmPassword("");
-          setAuthNotice("Tài khoản đã được tạo. Hãy mở email xác nhận, sau đó quay lại đăng nhập.");
-        }
-      } else {
-        await supabase.auth.signOut({ scope: "local" });
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
-        if (error || !data.user) {
-          setAuthError(error?.message ?? "Email hoặc mật khẩu không đúng.");
-          return;
-        }
-        await loadRemoteAccount(data.user.id, data.user.email ?? email);
-        closeAuth();
-      }
-    } catch {
-      setAuthError("Không thể kết nối dịch vụ tài khoản. Vui lòng thử lại.");
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
-  async function closeProfile() {
-    const displayName = playerName.trim() || "Người chơi ẩn danh";
-    setPlayerName(displayName);
-    if (sessionAccount) {
-      const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", sessionAccount.id);
-      if (error) setDataStatus("Không thể lưu tên hiển thị.");
-      else setSessionAccount({ ...sessionAccount, displayName });
-    }
-    setProfileOpen(false);
-  }
-
-  async function logout() {
-    await supabase.auth.signOut({ scope: "local" });
-    setSessionAccount(null);
-    loadGuestProgress();
-    setProfileOpen(false);
   }
 
   function nextScenario() {
@@ -621,61 +259,26 @@ export default function Home() {
     chooseScenario(remaining?.id ?? scenarios[0].id);
   }
 
-  function exportCisoReport() {
-    const header = ["Tên hiển thị", "Tên đăng nhập", "Ngày đăng ký", "Đã hoàn thành", "Chính xác (%)", "Cảnh giác (%)", "Tổn thất (VND)", "Mức rủi ro"];
-    const escapeCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
-    const rows = analyticsUsers.map((user) => [
-      user.displayName,
-      user.username,
-      new Date(user.createdAt).toLocaleDateString("vi-VN"),
-      user.completed,
-      user.accuracy,
-      user.awareness,
-      user.loss,
-      user.risk,
-    ]);
-    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n")}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `bao-cao-khien-so-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   const previousResult = results.find((result) => result.scenarioId === selected.id);
   const selectedAnswer = answer ?? previousResult?.choiceIndex ?? null;
-  const visibleDashboardStatus: DashboardStatus = sessionAccount ? dashboardStatus : "forbidden";
 
   return (
     <main className={dark ? "app dark" : "app"}>
       <header className="topbar">
-        <button className="brand" onClick={() => setView("game")} aria-label="HDBank IT Security — về màn chơi">
-          <img className="hdbank-logo" src="hdbank-logo.png" alt="HDBank" />
-          <span className="brand-divider" aria-hidden="true" />
-          <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>IT SECURITY</small></span>
+        <button className="brand" onClick={() => setView("game")} aria-label="Khiên Số — về màn chơi">
+          <span className="community-mark" aria-hidden="true">K</span>
+          <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>DỰ ÁN CỘNG ĐỒNG</small></span>
         </button>
         <nav aria-label="Điều hướng chính">
           <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
           <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
           <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
-          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
-          {sessionAccount ? (
-            <button className="profile-button" onClick={() => setProfileOpen(true)} aria-label={`Mở tài khoản của ${playerName}`}><span>{playerName.trim().slice(0, 1).toUpperCase() || "N"}</span>{playerName}</button>
-          ) : (
-            <div className="auth-actions">
-              <span className="guest-badge">Khách</span>
-              <button className="login-button" onClick={() => openAuth("login")}>Đăng nhập</button>
-              <button className="signup-button" onClick={() => openAuth("register")}>Đăng ký</button>
-            </div>
-          )}
+          <span className="guest-badge">Ẩn danh</span>
         </div>
       </header>
-      {dataStatus && <div className="sync-status" role="status" aria-live="polite">{dataStatus}</div>}
-
       {view === "game" && (
         <div className="game-shell">
           <aside className="scenario-panel">
@@ -701,7 +304,8 @@ export default function Home() {
           </aside>
 
           <section className="stage">
-            {!sessionAccount && <div className="guest-mode-note" role="note"><span><b>Đang tham gia với tư cách khách</b><small>Không cần tài khoản · Kết quả chỉ lưu trên thiết bị này</small></span><button onClick={() => openAuth("register")}>Đăng ký để đồng bộ</button></div>}
+            <div className="community-notice" role="note"><strong>BẢN TRẢI NGHIỆM CỘNG ĐỒNG</strong><span>Dự án giáo dục độc lập, không phải website giao dịch hay kênh chính thức của bất kỳ ngân hàng nào.</span></div>
+            <div className="guest-mode-note" role="note"><span><b>Bạn đang chơi ẩn danh</b><small>Không cần tài khoản · Không gửi kết quả lên máy chủ · Tiến trình chỉ lưu trên thiết bị này</small></span></div>
             <div className="status-grid">
               <div className="status-card"><BadgeIcon>₫</BadgeIcon><span><small>Tài sản an toàn</small><strong>{money.format(balance)}đ</strong></span></div>
               <div className="status-card"><BadgeIcon>⌁</BadgeIcon><span><small>Mức cảnh giác</small><strong>{awareness}%</strong></span><div className="meter"><i style={{ width: `${awareness}%` }} /></div></div>
@@ -743,7 +347,7 @@ export default function Home() {
 
           <aside className="insight-panel">
             <div className="coach-card">
-              <span className="eyebrow">HDBANK · IT SECURITY</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
+              <span className="eyebrow">KHIÊN SỐ · CỘNG ĐỒNG</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
               <button onClick={() => setGuide(true)}>Xem quy tắc 3 bước</button>
             </div>
             <div className="progress-card">
@@ -762,14 +366,14 @@ export default function Home() {
 
       {view === "knowledge" && (
         <section className="content-page">
-          <div className="page-hero"><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Sáu thói quen nhỏ,<br/>một lớp giáp lớn.</h1><p>Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.</p></div>
+          <div className="page-hero"><span className="eyebrow">KHIÊN SỐ · CỘNG ĐỒNG</span><h1>Sáu thói quen nhỏ,<br/>một lớp giáp lớn.</h1><p>Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.</p></div>
           <div className="knowledge-grid">{knowledgeCards.map((card, index) => <article key={card.title}><span>{String(index + 1).padStart(2, "0")}</span><BadgeIcon>{card.icon}</BadgeIcon><h2>{card.title}</h2><p>{card.text}</p></article>)}</div>
         </section>
       )}
 
       {view === "stats" && (
         <section className="content-page stats-page">
-          <div className="page-hero"><span className="eyebrow">HỒ SƠ PHÒNG VỆ</span><h1>{playerName}</h1><p>{sessionAccount ? "Tiến bộ của bạn được đồng bộ an toàn giữa các thiết bị." : "Đăng nhập để đồng bộ tiến bộ giữa các thiết bị."}</p></div>
+          <div className="page-hero"><span className="eyebrow">HỒ SƠ PHÒNG VỆ ẨN DANH</span><h1>{playerName}</h1><p>Kết quả và tiến trình chỉ được lưu cục bộ trong trình duyệt trên thiết bị này.</p></div>
           <div className="stats-overview"><article><small>Kịch bản đã thử</small><strong>{results.length}</strong><span>/ {scenarios.length}</span></article><article><small>Xử lý an toàn</small><strong>{safeIds.size}</strong><span>{results.length ? Math.round((safeIds.size / results.length) * 100) : 0}% chính xác</span></article><article><small>Điểm phòng vệ</small><strong>{score}</strong><span>cấp {Math.floor(score / 500) + 1}</span></article><article><small>Tài sản còn lại</small><strong className="money-stat">{money.format(balance)}đ</strong><span>bảo toàn {Math.round((balance / 300_000_000) * 100)}%</span></article></div>
           <div className="achievement-section"><div><span className="eyebrow">BỘ SƯU TẬP</span><h2>Huy hiệu phòng vệ</h2></div><div className="achievement-grid">{unlockedBadges.map((badge) => <article className={badge.unlocked ? "unlocked" : ""} key={badge.name}><span>{badge.icon}</span><div><strong>{badge.name}</strong><small>{badge.unlocked ? "Đã mở khoá" : "Chưa mở khoá"}</small></div></article>)}</div></div>
           <button className="reset-button" onClick={resetProgress}>Đặt lại toàn bộ tiến trình</button>
@@ -784,35 +388,15 @@ export default function Home() {
         </section>
       )}
 
-      {view === "dashboard" && (
-        <section className="content-page dashboard-page">
-          <div className="dashboard-heading">
-            <div><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu tập trung của toàn bộ người dùng.</p></div>
-            {visibleDashboardStatus === "ready" && <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>}
-          </div>
-          {!sessionAccount && <div className="dashboard-gate"><BadgeIcon>◇</BadgeIcon><h2>Đăng nhập để truy cập Dashboard</h2><p>Dữ liệu tổng hợp chỉ dành cho tài khoản đã được IT Security cấp quyền CISO.</p><button className="primary-button" onClick={() => openAuth("login")}>Đăng nhập</button></div>}
-          {sessionAccount && visibleDashboardStatus === "loading" && <div className="dashboard-gate"><h2>Đang tải dữ liệu báo cáo…</h2></div>}
-          {sessionAccount && visibleDashboardStatus === "error" && <div className="dashboard-gate"><h2>Chưa thể tải Dashboard</h2><p>Vui lòng kiểm tra kết nối và thử lại.</p></div>}
-          {sessionAccount && visibleDashboardStatus === "forbidden" && <div className="dashboard-gate"><BadgeIcon>◇</BadgeIcon><h2>Tài khoản chưa có quyền CISO</h2><p>Dashboard tổng hợp được bảo vệ bằng phân quyền máy chủ. Hãy liên hệ IT Security để được cấp quyền.</p></div>}
-          {visibleDashboardStatus === "ready" && <>
-            <div className="data-scope-note" role="note"><strong>Phạm vi dữ liệu:</strong> {analyticsUsers.length} tài khoản trên hệ thống · Dữ liệu tập trung · Không chứa mật khẩu hoặc dữ liệu ngân hàng.</div>
-            <div className="ciso-kpis">
-              <article><small>Người dùng đã đăng ký</small><strong>{analyticsUsers.length}</strong><span>{analytics.active} đã tham gia đào tạo</span></article>
-              <article><small>Tỷ lệ tham gia</small><strong>{analytics.participation}%</strong><span>{analytics.active}/{analyticsUsers.length || 0} người dùng hoạt động</span></article>
-              <article><small>Tỷ lệ xử lý an toàn</small><strong>{analytics.accuracy}%</strong><span>{analytics.correct}/{analytics.attempts} lượt đúng</span></article>
-              <article className={analytics.highRisk ? "risk-kpi" : ""}><small>Người dùng rủi ro cao</small><strong>{analytics.highRisk}</strong><span>Cần ưu tiên đào tạo lại</span></article>
-              <article><small>Tổn thất mô phỏng</small><strong className="dashboard-money">{money.format(analytics.totalLoss)}đ</strong><span>Tổng tác động từ lựa chọn sai</span></article>
-            </div>
-            <div className="dashboard-grid">
-              <article className="dashboard-card outcome-card"><div className="dashboard-card-title"><div><small>HIỆU QUẢ ĐÀO TẠO</small><h2>Kết quả xử lý tình huống</h2></div><strong>{analytics.attempts} lượt</strong></div><div className="outcome-chart" aria-label={`${analytics.correct} lượt an toàn, ${Math.max(0, analytics.attempts - analytics.correct)} lượt mắc bẫy`}><div className="outcome-bar"><span style={{ width: `${analytics.accuracy}%` }} /></div><div className="outcome-legend"><span><i className="safe-dot" />An toàn <b>{analytics.correct}</b></span><span><i className="risk-dot" />Mắc bẫy <b>{Math.max(0, analytics.attempts - analytics.correct)}</b></span></div></div></article>
-              <article className="dashboard-card"><div className="dashboard-card-title"><div><small>RỦI RO NỔI BẬT</small><h2>Kịch bản dễ mắc bẫy</h2></div></div><div className="risk-ranking">{scenarioRisks.map((item, index) => <div key={item.id}><span>{index + 1}</span><div><strong>{item.title}</strong><small>{item.attempts ? `${item.wrong}/${item.attempts} lượt sai` : "Chưa có dữ liệu"}</small></div><b>{item.rate}%</b></div>)}</div></article>
-            </div>
-            <article className="dashboard-card user-analysis"><div className="dashboard-card-title"><div><small>PHÂN TÍCH NGƯỜI DÙNG</small><h2>Danh sách ưu tiên đào tạo</h2></div><span>Sắp xếp theo mức rủi ro</span></div><div className="analytics-table-wrap"><table><thead><tr><th>Người dùng</th><th>Tham gia</th><th>Chính xác</th><th>Cảnh giác</th><th>Tổn thất mô phỏng</th><th>Đánh giá</th></tr></thead><tbody>{analyticsUsers.map((user) => <tr key={user.username}><td><strong>{user.displayName}</strong><small>@{user.username} · {new Date(user.createdAt).toLocaleDateString("vi-VN")}</small></td><td>{user.completed}/{scenarios.length}</td><td>{user.accuracy}%</td><td>{user.awareness}%</td><td>{money.format(user.loss)}đ</td><td><span className={`risk-label risk-${user.risk === "Cao" ? "high" : user.risk === "Thấp" ? "low" : "medium"}`}>{user.risk}</span></td></tr>)}{!analyticsUsers.length && <tr><td colSpan={6} className="empty-table">Chưa có tài khoản để phân tích.</td></tr>}</tbody></table></div></article>
-          </>}
-        </section>
+      {view === "about" && (
+        <section className="content-page policy-page"><button className="back-button" onClick={() => setView("game")}>← Quay lại màn chơi</button><div className="page-hero"><span className="eyebrow">GIỚI THIỆU DỰ ÁN</span><h1>Khiên Số dành cho cộng đồng.</h1><p>Khiên Số là dự án giáo dục độc lập, giúp người chơi luyện phản xạ nhận diện lừa đảo qua các tình huống mô phỏng. Dự án không đại diện, không cung cấp dịch vụ và không thực hiện giao dịch thay cho bất kỳ ngân hàng hay tổ chức nào.</p></div><div className="policy-grid"><article><h2>Mục đích</h2><p>Nội dung chỉ phục vụ giáo dục và tham khảo, không phải tư vấn pháp lý, tài chính hoặc xác nhận một giao dịch là an toàn.</p></article><article><h2>Nguyên tắc sử dụng</h2><p>Không nhập mật khẩu, OTP, số tài khoản, CCCD, thông tin khách hàng hoặc dữ liệu bí mật vào website hay các liên kết xuất hiện trong tình huống mô phỏng.</p></article><article><h2>Khi có sự cố thật</h2><p>Dừng giao dịch, liên hệ tổ chức liên quan qua kênh chính thức, lưu bằng chứng và trình báo cơ quan chức năng gần nhất.</p></article></div></section>
       )}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>IT SECURITY</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu ngân hàng. Tài khoản và kết quả được bảo vệ trên Supabase.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      {view === "privacy" && (
+        <section className="content-page policy-page"><button className="back-button" onClick={() => setView("game")}>← Quay lại màn chơi</button><div className="page-hero"><span className="eyebrow">QUYỀN RIÊNG TƯ</span><h1>Chơi ẩn danh,<br/>dữ liệu ở lại thiết bị.</h1><p>Khiên Số không yêu cầu đăng ký, không có biểu mẫu thu thập họ tên, email, số điện thoại hay dữ liệu ngân hàng, và không gửi kết quả chơi lên máy chủ.</p></div><div className="policy-grid"><article><h2>Dữ liệu được lưu</h2><p>Tiến trình, lựa chọn mô phỏng, điểm số và chế độ sáng/tối chỉ được lưu trong bộ nhớ trình duyệt trên thiết bị của bạn.</p></article><article><h2>Quyền kiểm soát</h2><p>Bạn có thể chọn “Đặt lại toàn bộ tiến trình” để xóa kết quả chơi. Xóa dữ liệu website trong trình duyệt cũng loại bỏ toàn bộ dữ liệu cục bộ.</p></article><article><h2>Không theo dõi cá nhân</h2><p>Phiên bản cộng đồng không sử dụng tài khoản người dùng, Dashboard tập trung hoặc hồ sơ định danh để đánh giá người chơi.</p></article></div></section>
+      )}
+
+      <footer><div className="footer-brand"><span className="footer-mark" aria-hidden="true">K</span><span><b>KHIÊN SỐ</b><small>Dự án cộng đồng nâng cao nhận thức an toàn số</small></span></div><p>Không nhập mật khẩu, OTP, số tài khoản, CCCD hoặc dữ liệu khách hàng.</p><div className="footer-links"><button onClick={() => setView("about")}>Giới thiệu</button><button onClick={() => setView("privacy")}>Quyền riêng tư</button><a href="https://github.com/tanthanh381/chongluadao/issues" target="_blank" rel="noreferrer">Góp ý</a><button onClick={() => setGuide(true)}>Hướng dẫn</button></div></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
@@ -829,34 +413,8 @@ export default function Home() {
         <button className="primary-button loss-confirm" onClick={() => setLossNotice(null)}>Đã hiểu hậu quả</button>
       </Modal>}
 
-      <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">H</span><span className="eyebrow">HDBANK · IT SECURITY</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ HDBank qua kênh chính thức, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
+      <Modal open={guide} onClose={() => setGuide(false)} labelledBy="guide-title"><button className="modal-close" aria-label="Đóng hướng dẫn" onClick={() => setGuide(false)}>×</button><span className="modal-symbol">K</span><span className="eyebrow">KHIÊN SỐ · CỘNG ĐỒNG</span><h2 id="guide-title">Dừng — Kiểm — Báo</h2><ol><li><b>01</b><div><strong>Dừng giao dịch</strong><p>Không chuyển thêm tiền, không cài ứng dụng và không cung cấp mã xác thực.</p></div></li><li><b>02</b><div><strong>Kiểm tra độc lập</strong><p>Tự gọi số chính thức của ngân hàng, tổ chức hoặc người thân qua kênh quen thuộc.</p></div></li><li><b>03</b><div><strong>Báo sớm, lưu kỹ</strong><p>Liên hệ tổ chức liên quan qua kênh chính thức, lưu ảnh chụp và trình báo cơ quan công an gần nhất.</p></div></li></ol><button className="primary-button" onClick={() => setGuide(false)}>Tôi đã hiểu</button></Modal>
 
-      <Modal open={authOpen} onClose={closeAuth} labelledBy="auth-title" className="auth-modal">
-        <button className="modal-close" aria-label="Đóng đăng nhập" onClick={closeAuth}>×</button>
-        <span className="modal-symbol">H</span>
-        <span className="eyebrow">KHIÊN SỐ · TÀI KHOẢN ĐỒNG BỘ</span>
-        <div className="auth-tabs" aria-label="Chọn hình thức tài khoản">
-          <button type="button" aria-pressed={authMode === "login"} className={authMode === "login" ? "active" : ""} onClick={() => switchAuthMode("login")}>Đăng nhập</button>
-          <button type="button" aria-pressed={authMode === "register"} className={authMode === "register" ? "active" : ""} onClick={() => switchAuthMode("register")}>Đăng ký</button>
-        </div>
-        <h2 id="auth-title">{authMode === "login" ? "Chào mừng trở lại" : "Tạo hồ sơ phòng vệ"}</h2>
-        <p className="auth-intro">Đăng nhập để lưu kết quả và tiếp tục trên thiết bị khác. Không sử dụng mật khẩu ngân hàng thật.</p>
-        <form className="auth-form" onSubmit={submitAuth}>
-          {authMode === "register" && <label><span>Tên hiển thị</span><input autoComplete="name" value={authDisplayName} maxLength={32} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Ví dụ: Minh An" /></label>}
-          {authMode === "register" && <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="minhan_01" autoCapitalize="none" spellCheck={false} /></label>}
-          <label><span>Email</span><input type="email" autoComplete="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="ten@hdbank.com.vn" autoCapitalize="none" spellCheck={false} /></label>
-          <label><span>Mật khẩu</span><input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Ít nhất 8 ký tự" /></label>
-          {authMode === "register" && <label><span>Xác nhận mật khẩu</span><input type="password" autoComplete="new-password" value={authConfirmPassword} onChange={(event) => setAuthConfirmPassword(event.target.value)} placeholder="Nhập lại mật khẩu" /></label>}
-          {authError && <p className="auth-error" role="alert">{authError}</p>}
-          {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}
-          <button className="primary-button auth-submit" type="submit" disabled={authBusy}>{authBusy ? "Đang bảo vệ tài khoản…" : authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}</button>
-          <div className="auth-or" aria-hidden="true"><span>hoặc</span></div>
-          <button className="guest-continue" type="button" onClick={continueAsGuest}>Tiếp tục với tư cách khách</button>
-        </form>
-        <p className="auth-security-note"><b>Chế độ khách:</b> Không tạo tài khoản và không gửi kết quả lên máy chủ. Supabase chỉ được dùng khi bạn chủ động đăng ký hoặc đăng nhập.</p>
-      </Modal>
-
-      <Modal open={profileOpen} onClose={closeProfile} labelledBy="profile-title" className="profile-modal"><button className="modal-close" aria-label="Đóng hồ sơ" onClick={closeProfile}>×</button><span className="eyebrow">TÀI KHOẢN ĐÃ ĐĂNG NHẬP</span><h2 id="profile-title">Hồ sơ của bạn</h2><p className="account-username">@{sessionAccount?.username} · {sessionAccount?.email}</p><label className="profile-name-field"><span>Tên hiển thị</span><input aria-label="Tên hiển thị" value={playerName} maxLength={32} onChange={(event) => setPlayerName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void closeProfile(); }} /></label><div className="profile-actions"><button className="primary-button" onClick={closeProfile}>Lưu thay đổi</button><button className="logout-button" onClick={logout}>Đăng xuất</button></div><p className="profile-note">Tiến trình được đồng bộ an toàn và phiên cũ trên trình duyệt được xoá khi đổi tài khoản.</p></Modal>
     </main>
   );
 }
