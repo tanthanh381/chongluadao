@@ -34,7 +34,7 @@ test("server renders the Khiên Số experience", async () => {
 });
 
 test("ships product metadata and social artwork", async () => {
-  const [layout, page, admin, data, schema, contentRoles, packageJson] = await Promise.all([
+  const [layout, page, admin, data, schema, contentRoles, packageJson, styles] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin.tsx", import.meta.url), "utf8"),
@@ -42,6 +42,7 @@ test("ships product metadata and social artwork", async () => {
     readFile(new URL("../supabase/schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/content_roles.sql", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(layout, /og\.png/);
@@ -116,5 +117,7 @@ test("ships product metadata and social artwork", async () => {
   await assert.rejects(access(new URL("../public/favicon.png", import.meta.url)));
   assert.match(page, /function BrandMark/);
   assert.doesNotMatch(page, /hdbank-logo\.png|alt="HDBank"|className="hdbank-logo"/);
+  assert.match(styles, /\.app \{[^}]*color: var\(--ink\)/);
+  assert.match(styles, /\.app\.dark \{[^}]*color-scheme: dark/);
   await assert.rejects(access(new URL("../app/_sites-preview", root)));
 });
