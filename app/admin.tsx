@@ -54,6 +54,8 @@ export function AdminPage({
   const [role, setRole] = useState<ContentRole | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [changingUserId, setChangingUserId] = useState<string | null>(null);
+  const [grantIdentity, setGrantIdentity] = useState("");
+  const [grantRole, setGrantRole] = useState<ContentRole>("editor");
 
   useEffect(() => {
     if (!account) return;
@@ -238,7 +240,11 @@ export function AdminPage({
   }
 
   async function changeUserRole(user: ManagedUser, nextRole: ManagedRole) {
-    if (role !== "admin" || user.id === account?.id) return;
+    if (role !== "admin" || user.id === account?.id) return false;
+    if (user.role === nextRole) {
+      setStatus(`${user.displayName} đã có quyền ${nextRole === "admin" ? "Quản trị" : nextRole === "editor" ? "Biên tập viên" : "Thành viên"}.`);
+      return true;
+    }
     setChangingUserId(user.id);
     setStatus(`Đang cập nhật quyền cho ${user.displayName}…`);
     const result = await supabase.rpc("set_content_manager_role", {
@@ -248,18 +254,38 @@ export function AdminPage({
     if (result.error) {
       setChangingUserId(null);
       setStatus("Không thể cập nhật quyền. Vui lòng tải lại và kiểm tra phiên đăng nhập.");
-      return;
+      return false;
     }
     const refreshed = await supabase.rpc("get_content_management_access");
     const context = parseManagementContext(refreshed.data);
     if (refreshed.error || !context) {
       setChangingUserId(null);
       setStatus("Quyền đã thay đổi nhưng chưa thể tải lại danh sách tài khoản.");
-      return;
+      return false;
     }
     setManagedUsers(context.users);
     setChangingUserId(null);
     setStatus(`Đã cấp quyền ${nextRole === "admin" ? "Quản trị" : nextRole === "editor" ? "Biên tập viên" : "Thành viên"} cho ${user.displayName}.`);
+    return true;
+  }
+
+  async function grantRoleByIdentity(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const identity = grantIdentity.trim().toLowerCase();
+    if (!identity) {
+      setStatus("Nhập email hoặc tên đăng nhập của tài khoản cần cấp quyền.");
+      return;
+    }
+    const user = managedUsers.find((item) => item.email.toLowerCase() === identity || item.username.toLowerCase() === identity);
+    if (!user) {
+      setStatus("Không tìm thấy tài khoản. Người dùng cần đăng ký và xác nhận email trên website trước khi được cấp quyền.");
+      return;
+    }
+    if (user.id === account?.id) {
+      setStatus("Không thể thay đổi quyền của chính tài khoản đang đăng nhập.");
+      return;
+    }
+    if (await changeUserRole(user, grantRole)) setGrantIdentity("");
   }
 
   if (!account) return <AdminGate title="Đăng nhập để quản trị nội dung" detail="Trang này chỉ dành cho tài khoản được IT Security cấp quyền quản trị." action={onLogin} />;
@@ -316,6 +342,12 @@ export function AdminPage({
 
       {tab === "users" && role === "admin" && <div className="role-management">
         <div className="admin-section-title"><div><span className="eyebrow">PHÂN QUYỀN HỆ THỐNG</span><h2>Tài khoản và nhóm quyền</h2><p>Quản trị viên có toàn quyền; Biên tập viên chỉ soạn và lưu bản nháp.</p></div></div>
+        <form className="role-grant-form" onSubmit={grantRoleByIdentity}>
+          <label><span>Email hoặc tên đăng nhập</span><input list="managed-account-options" value={grantIdentity} onChange={(event) => setGrantIdentity(event.target.value)} placeholder="vidu@company.com hoặc ten_dang_nhap" autoComplete="off" /><datalist id="managed-account-options">{managedUsers.filter((user) => user.id !== account.id).map((user) => <option key={user.id} value={user.email}>{user.displayName} · @{user.username}</option>)}</datalist></label>
+          <label><span>Nhóm quyền cần cấp</span><select value={grantRole} onChange={(event) => setGrantRole(event.target.value as ContentRole)}><option value="editor">Biên tập viên</option><option value="admin">Quản trị</option></select></label>
+          <button className="primary-button" disabled={Boolean(changingUserId)} type="submit">Cấp quyền</button>
+        </form>
+        <p className="role-grant-help">Chỉ tài khoản đã đăng ký và xác nhận email mới có thể được cấp quyền. Có thể thu hồi quyền về “Thành viên” trong danh sách bên dưới.</p>
         <div className="role-table-wrap"><table><thead><tr><th>Tài khoản</th><th>Ngày đăng ký</th><th>Nhóm quyền</th></tr></thead><tbody>{managedUsers.map((user) => <tr key={user.id}><td><strong>{user.displayName}</strong><small>@{user.username} · {user.email}</small></td><td>{new Date(user.createdAt).toLocaleDateString("vi-VN")}</td><td><select aria-label={`Nhóm quyền của ${user.displayName}`} value={user.role} disabled={user.id === account.id || changingUserId === user.id} onChange={(event) => void changeUserRole(user, event.target.value as ManagedRole)}><option value="member">Thành viên</option><option value="editor">Biên tập viên</option><option value="admin">Quản trị</option></select>{user.id === account.id && <small className="self-role-note">Tài khoản hiện tại</small>}</td></tr>)}</tbody></table></div>
       </div>}
     </section>
