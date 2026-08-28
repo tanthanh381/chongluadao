@@ -376,7 +376,7 @@ export default function Home() {
     setSelectedId(1);
     setDifficulty("Tất cả");
     setQuery("");
-    setView("game");
+    if (window.location.hash !== "#/admin") setView("game");
   }
 
   function loadGuestProgress() {
