@@ -22,7 +22,7 @@ create table public.user_progress (
 
 create table public.test_attempts (
   user_id uuid not null references auth.users(id) on delete cascade,
-  scenario_id smallint not null check (scenario_id between 1 and 10),
+  scenario_id smallint not null check (scenario_id between 1 and 100),
   choice_index smallint not null check (choice_index between 0 and 2),
   correct boolean not null,
   balance_after integer not null check (balance_after between 0 and 300000000),
@@ -39,10 +39,24 @@ create table private.app_admins (
   granted_at timestamptz not null default now()
 );
 
+create table public.site_content (
+  slug text primary key,
+  content jsonb not null,
+  published boolean not null default false,
+  updated_by uuid not null references auth.users(id),
+  updated_at timestamptz not null default now(),
+  constraint site_content_slug_format check (slug ~ '^[a-z0-9-]{1,64}$'),
+  constraint site_content_object check (jsonb_typeof(content) = 'object'),
+  constraint site_content_size check (pg_column_size(content) <= 1048576)
+);
+
+create index site_content_updated_by_idx on public.site_content (updated_by);
+
 alter table public.profiles enable row level security;
 alter table public.user_progress enable row level security;
 alter table public.test_attempts enable row level security;
 alter table private.app_admins enable row level security;
+alter table public.site_content enable row level security;
 
 create policy app_admins_no_direct_access on private.app_admins
   for all to authenticated
@@ -53,6 +67,45 @@ grant select on public.profiles to authenticated;
 grant update (display_name) on public.profiles to authenticated;
 grant select, insert, update on public.user_progress to authenticated;
 grant select, insert, update, delete on public.test_attempts to authenticated;
+grant select on public.site_content to anon, authenticated;
+grant insert, update, delete on public.site_content to authenticated;
+
+create or replace function private.user_is_app_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select auth.uid()) is not null and exists (
+    select 1 from private.app_admins where user_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function private.user_is_app_admin() from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.user_is_app_admin() to authenticated;
+
+create policy site_content_public_read on public.site_content
+  for select to anon
+  using (published);
+
+create policy site_content_authenticated_read on public.site_content
+  for select to authenticated
+  using (published or (select private.user_is_app_admin()));
+
+create policy site_content_admin_insert on public.site_content
+  for insert to authenticated
+  with check ((select private.user_is_app_admin()) and updated_by = (select auth.uid()));
+
+create policy site_content_admin_update on public.site_content
+  for update to authenticated
+  using ((select private.user_is_app_admin()))
+  with check ((select private.user_is_app_admin()) and updated_by = (select auth.uid()));
+
+create policy site_content_admin_delete on public.site_content
+  for delete to authenticated
+  using ((select private.user_is_app_admin()));
 
 create policy profiles_select_own on public.profiles
   for select to authenticated
@@ -182,7 +235,17 @@ begin
           case when count(a.scenario_id) = 0 then 0
             else round(100.0 * count(a.scenario_id) filter (where not a.correct) / count(a.scenario_id))::integer
           end as rate
-        from generate_series(1, 10) as s(scenario_id)
+        from (
+          select (item ->> 'id')::smallint as scenario_id
+          from public.site_content content_row
+          cross join lateral jsonb_array_elements(content_row.content -> 'scenarios') item
+          where content_row.slug = 'main' and content_row.published
+          union all
+          select generate_series(1, 10)::smallint
+          where not exists (
+            select 1 from public.site_content where slug = 'main' and published
+          )
+        ) as s
         left join public.test_attempts a on a.scenario_id = s.scenario_id
         group by s.scenario_id
       ) scenario_rows
