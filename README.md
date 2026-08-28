@@ -17,6 +17,8 @@
 - Tham gia ngay với tư cách khách, không cần đăng ký và không tạo bản ghi Supabase
 - Đồng bộ hồ sơ, tiến trình và kết quả kiểm tra giữa các thiết bị
 - Dashboard dữ liệu tập trung, chỉ mở cho tài khoản được cấp quyền CISO
+- Trang quản trị nội dung tại `/#/admin`, có bản nháp và thao tác xuất bản
+- Quản lý nội dung chung, tình huống, đáp án, mức thiệt hại và thẻ cẩm nang
 - Row Level Security bảo đảm người dùng thường chỉ đọc/ghi dữ liệu của chính mình
 - `localStorage` chỉ dùng cho giao diện và tiến trình khách chưa đăng nhập
 - Không yêu cầu hoặc thu thập dữ liệu ngân hàng
@@ -48,6 +50,8 @@ React 19, TypeScript, vinext/Vite, Supabase Auth/Postgres và Cloudflare Workers
 
 Cấu trúc cơ sở dữ liệu nằm tại `supabase/schema.sql`. Website chỉ chứa khóa Supabase publishable dành cho trình duyệt; không chứa secret key hoặc `service_role`.
 
+Với dự án Supabase đã tồn tại, áp dụng `supabase/admin_content.sql` để bổ sung kho nội dung và chính sách RLS. Nội dung công khai chỉ đọc bản có trạng thái `published`; tài khoản thường không thể đọc bản nháp hoặc ghi dữ liệu.
+
 Để cấp quyền Dashboard cho một tài khoản đã xác nhận email, chạy bằng SQL Editor của Supabase với email quản trị thực tế:
 
 ```sql
@@ -55,6 +59,8 @@ insert into private.app_admins (user_id)
 select id from auth.users where email = 'ciso@example.com'
 on conflict (user_id) do nothing;
 ```
+
+Quyền này mở cả Dashboard và trang Quản trị. Sau khi đăng nhập bằng tài khoản đã được cấp quyền, truy cập `https://tanthanh381.github.io/chongluadao/#/admin`.
 
 Trong Supabase Authentication → URL Configuration, đặt Site URL là `https://tanthanh381.github.io/chongluadao/` và thêm cùng URL vào Redirect URLs để liên kết xác nhận email quay lại đúng website.
 
