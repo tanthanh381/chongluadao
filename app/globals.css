@@ -371,6 +371,12 @@ footer { font-size: 12px; }.footer-brand small { font-size: 10px; }
 .knowledge-admin-head button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--red); cursor: pointer; }
 .role-management { padding: 22px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
 .role-management .admin-section-title p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+.role-grant-form { display: grid; grid-template-columns: minmax(260px, 1fr) 210px auto; gap: 12px; align-items: end; margin-bottom: 8px; padding: 16px; border: 1px solid color-mix(in srgb, var(--green) 28%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--green) 4%, var(--paper)); }
+.role-grant-form label { display: grid; gap: 7px; }.role-grant-form label > span { color: var(--muted); font-size: 11px; font-weight: 750; }
+.role-grant-form input, .role-grant-form select { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 10px 12px; font-size: 13px; }
+.role-grant-form input:focus, .role-grant-form select:focus { border-color: var(--green); outline: 3px solid color-mix(in srgb, var(--green) 12%, transparent); }
+.role-grant-form .primary-button { min-height: 42px; white-space: nowrap; }
+.role-grant-help { margin: 0 0 15px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .role-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
 .role-table-wrap table { width: 100%; min-width: 680px; border-collapse: collapse; }
 .role-table-wrap th, .role-table-wrap td { padding: 13px 15px; border-bottom: 1px solid var(--line); text-align: left; font-size: 12px; }
@@ -393,6 +399,7 @@ footer { font-size: 12px; }.footer-brand small { font-size: 10px; }
   .scenario-admin-layout { grid-template-columns: 1fr; }
   .admin-list { position: static; max-height: 280px; }
   .knowledge-admin-grid { grid-template-columns: 1fr 1fr; }
+  .role-grant-form { grid-template-columns: 1fr 190px; }.role-grant-form .primary-button { grid-column: 1 / -1; justify-self: start; }
 }
 
 @media (max-width: 520px) {
@@ -402,4 +409,5 @@ footer { font-size: 12px; }.footer-brand small { font-size: 10px; }
   .admin-actions { width: 100%; }
   .admin-actions button { flex: 1 1 auto; }
   .admin-section-title { align-items: flex-start; flex-direction: column; }
+  .role-management { padding: 16px; }.role-grant-form { grid-template-columns: 1fr; }.role-grant-form .primary-button { grid-column: auto; width: 100%; }
 }
