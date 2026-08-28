@@ -50,6 +50,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /localStorage/);
   assert.match(page, /KHIÊN SỐ/);
   assert.match(page, /FooterNotice/);
+  assert.match(page, /footer-warning/);
+  assert.match(page, /split\(\/\\n\+\//);
   assert.match(page, /event\.key === "Escape"/);
   assert.match(page, /aria-pressed/);
   assert.match(page, /role="status"/);
