@@ -195,7 +195,36 @@ export const scenarios: Scenario[] = [
   },
 ];
 
-export const knowledgeCards = [
+export type KnowledgeCard = {
+  icon: string;
+  title: string;
+  text: string;
+};
+
+export type SiteCopy = {
+  productName: string;
+  departmentName: string;
+  libraryEyebrow: string;
+  libraryTitle: string;
+  coachEyebrow: string;
+  knowledgeEyebrow: string;
+  knowledgeTitle: string;
+  knowledgeIntro: string;
+  dashboardEyebrow: string;
+  dashboardTitle: string;
+  dashboardIntro: string;
+  footerTagline: string;
+  footerNotice: string;
+};
+
+export type SiteContent = {
+  version: 1;
+  copy: SiteCopy;
+  scenarios: Scenario[];
+  knowledgeCards: KnowledgeCard[];
+};
+
+export const knowledgeCards: KnowledgeCard[] = [
   { icon: "⏱", title: "Quy tắc 30 giây", text: "Dừng lại, hít thở và không hành động khi người lạ tạo cảm giác khẩn cấp." },
   { icon: "⌁", title: "Xác minh đa kênh", text: "Tự tìm số chính thức hoặc gọi người thân qua kênh khác, không dùng thông tin kẻ lạ cung cấp." },
   { icon: "⌾", title: "Giữ bí mật mã xác thực", text: "Mật khẩu, OTP, mã QR đăng nhập và mã khôi phục chỉ dành cho bạn." },
@@ -203,3 +232,76 @@ export const knowledgeCards = [
   { icon: "⚑", title: "Lưu bằng chứng", text: "Chụp màn hình, lưu số điện thoại, đường link và mã giao dịch trước khi báo cáo." },
   { icon: "☏", title: "Kênh trợ giúp", text: "Liên hệ ngân hàng và công an gần nhất càng sớm càng tốt khi đã phát sinh thiệt hại." },
 ];
+
+export const defaultSiteContent: SiteContent = {
+  version: 1,
+  copy: {
+    productName: "KHIÊN SỐ",
+    departmentName: "IT SECURITY",
+    libraryEyebrow: "THƯ VIỆN TÌNH HUỐNG",
+    libraryTitle: "Chọn một thử thách",
+    coachEyebrow: "HDBANK · IT SECURITY",
+    knowledgeEyebrow: "HDBANK · IT SECURITY",
+    knowledgeTitle: "Sáu thói quen nhỏ, một lớp giáp lớn.",
+    knowledgeIntro: "Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.",
+    dashboardEyebrow: "HDBANK · IT SECURITY",
+    dashboardTitle: "Dashboard nhận thức an toàn",
+    dashboardIntro: "Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu tập trung của toàn bộ người dùng.",
+    footerTagline: "Khiên Số · Đào tạo nhận thức an toàn thông tin",
+    footerNotice: "Không nhập dữ liệu ngân hàng. Tài khoản và kết quả được bảo vệ trên Supabase.",
+  },
+  scenarios,
+  knowledgeCards,
+};
+
+const difficultyValues: Difficulty[] = ["Dễ", "Trung bình", "Khó", "Rất khó"];
+
+function isText(value: unknown, maxLength = 5000): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+}
+
+export function normalizeSiteContent(value: unknown): SiteContent | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<SiteContent>;
+  if (!candidate.copy || typeof candidate.copy !== "object") return null;
+  const copy = candidate.copy as Partial<SiteCopy>;
+  const copyKeys: Array<keyof SiteCopy> = [
+    "productName", "departmentName", "libraryEyebrow", "libraryTitle", "coachEyebrow",
+    "knowledgeEyebrow", "knowledgeTitle", "knowledgeIntro", "dashboardEyebrow",
+    "dashboardTitle", "dashboardIntro", "footerTagline", "footerNotice",
+  ];
+  if (copyKeys.some((key) => !isText(copy[key], key.endsWith("Intro") || key === "footerNotice" ? 1000 : 180))) return null;
+  if (!Array.isArray(candidate.scenarios) || candidate.scenarios.length < 1 || candidate.scenarios.length > 100) return null;
+  const ids = new Set<number>();
+  const validScenarios = candidate.scenarios.every((scenario) => {
+    if (!scenario || typeof scenario !== "object") return false;
+    if (!Number.isInteger(scenario.id) || scenario.id < 1 || scenario.id > 100 || ids.has(scenario.id)) return false;
+    ids.add(scenario.id);
+    return isText(scenario.title, 160)
+      && isText(scenario.category, 80)
+      && difficultyValues.includes(scenario.difficulty)
+      && isText(scenario.channel, 80)
+      && isText(scenario.icon, 12)
+      && isText(scenario.story, 3000)
+      && Array.isArray(scenario.redFlags) && scenario.redFlags.length >= 1 && scenario.redFlags.length <= 8
+      && scenario.redFlags.every((flag) => isText(flag, 220))
+      && isText(scenario.tip, 1000)
+      && isText(scenario.evidence, 300)
+      && Array.isArray(scenario.choices) && scenario.choices.length === 3
+      && scenario.choices.filter((choice) => choice.correct).length === 1
+      && scenario.choices.every((choice) => isText(choice.text, 500)
+        && typeof choice.correct === "boolean"
+        && Number.isInteger(choice.moneyDelta) && Math.abs(choice.moneyDelta) <= 300_000_000
+        && Number.isInteger(choice.awarenessDelta) && Math.abs(choice.awarenessDelta) <= 100
+        && isText(choice.feedback, 1200));
+  });
+  if (!validScenarios) return null;
+  if (!Array.isArray(candidate.knowledgeCards) || candidate.knowledgeCards.length < 1 || candidate.knowledgeCards.length > 24) return null;
+  if (!candidate.knowledgeCards.every((card) => isText(card.icon, 12) && isText(card.title, 160) && isText(card.text, 1200))) return null;
+  return {
+    version: 1,
+    copy: copy as SiteCopy,
+    scenarios: candidate.scenarios,
+    knowledgeCards: candidate.knowledgeCards,
+  };
+}

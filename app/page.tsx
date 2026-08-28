@@ -3,11 +3,12 @@
 /* eslint-disable @next/next/no-img-element -- this component also ships through a plain Vite/GitHub Pages build */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Difficulty, knowledgeCards, scenarios } from "./data";
+import { defaultSiteContent, Difficulty, normalizeSiteContent, SiteContent } from "./data";
+import { AdminPage } from "./admin";
 import { supabase } from "./supabase";
 
 type Result = { scenarioId: number; correct: boolean; choiceIndex: number };
-type View = "game" | "knowledge" | "stats" | "evidence" | "dashboard";
+type View = "game" | "knowledge" | "stats" | "evidence" | "dashboard" | "admin";
 type StoredProgress = {
   balance: number;
   awareness: number;
@@ -76,7 +77,7 @@ function readStoredProgress(key: string): StoredProgress | null {
           const candidate = result as Record<string, unknown>;
           return Number.isInteger(candidate.scenarioId)
             && Number(candidate.scenarioId) >= 1
-            && Number(candidate.scenarioId) <= scenarios.length
+            && Number(candidate.scenarioId) <= 100
             && typeof candidate.correct === "boolean"
             && Number.isInteger(candidate.choiceIndex)
             && Number(candidate.choiceIndex) >= 0
@@ -177,6 +178,7 @@ function Modal({
 
 export default function Home() {
   const [view, setView] = useState<View>("game");
+  const [siteContent, setSiteContent] = useState<SiteContent>(defaultSiteContent);
   const [selectedId, setSelectedId] = useState(1);
   const [difficulty, setDifficulty] = useState<"Tất cả" | Difficulty>("Tất cả");
   const [query, setQuery] = useState("");
@@ -205,6 +207,33 @@ export default function Home() {
   const [dashboardScenarioRisks, setDashboardScenarioRisks] = useState<ScenarioRisk[]>([]);
   const [playerName, setPlayerName] = useState("Người chơi ẩn danh");
   const [hydrated, setHydrated] = useState(false);
+  const scenarios = siteContent.scenarios;
+  const knowledgeCards = siteContent.knowledgeCards;
+
+  useEffect(() => {
+    const syncHash = () => {
+      if (window.location.hash === "#/admin") setView("admin");
+    };
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("site_content")
+        .select("content")
+        .eq("slug", "main")
+        .eq("published", true)
+        .maybeSingle();
+      if (!active) return;
+      const normalized = normalizeSiteContent(data?.content);
+      if (normalized) setSiteContent(normalized);
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -308,14 +337,14 @@ export default function Home() {
   const scenarioRisks = useMemo(() => dashboardScenarioRisks.map((risk) => ({
     ...(scenarios.find((scenario) => scenario.id === risk.scenarioId) ?? scenarios[0]),
     ...risk,
-  })).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [dashboardScenarioRisks]);
+  })).sort((a, b) => b.rate - a.rate || b.attempts - a.attempts).slice(0, 5), [dashboardScenarioRisks, scenarios]);
 
   const filtered = useMemo(() => scenarios.filter((item) => {
     const matchesDifficulty = difficulty === "Tất cả" || item.difficulty === difficulty;
     const needle = query.trim().toLowerCase();
     const matchesQuery = !needle || `${item.title} ${item.category} ${item.channel}`.toLowerCase().includes(needle);
     return matchesDifficulty && matchesQuery;
-  }), [difficulty, query]);
+  }), [difficulty, query, scenarios]);
 
   const streak = useMemo(() => {
     let current = 0;
@@ -435,8 +464,14 @@ export default function Home() {
   function chooseScenario(id: number) {
     setSelectedId(id);
     setAnswer(null);
-    setView("game");
+    navigateTo("game");
     if (window.innerWidth < 1050) document.querySelector(".stage")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function navigateTo(nextView: View) {
+    if (nextView === "admin") window.location.hash = "/admin";
+    else if (window.location.hash === "#/admin") window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    setView(nextView);
   }
 
   async function submitChoice(index: number) {
@@ -650,16 +685,17 @@ export default function Home() {
   return (
     <main className={dark ? "app dark" : "app"}>
       <header className="topbar">
-        <button className="brand" onClick={() => setView("game")} aria-label="HDBank IT Security — về màn chơi">
+        <button className="brand" onClick={() => navigateTo("game")} aria-label="HDBank IT Security — về màn chơi">
           <img className="hdbank-logo" src="hdbank-logo.png" alt="HDBank" />
           <span className="brand-divider" aria-hidden="true" />
-          <span className="product-lockup"><strong>KHIÊN SỐ</strong><small>IT SECURITY</small></span>
+          <span className="product-lockup"><strong>{siteContent.copy.productName}</strong><small>{siteContent.copy.departmentName}</small></span>
         </button>
         <nav aria-label="Điều hướng chính">
-          <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => setView("game")}>Mô phỏng</button>
-          <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => setView("knowledge")}>Cẩm nang</button>
-          <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => setView("stats")}>Thành tích</button>
-          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
+          <button aria-current={view === "game" ? "page" : undefined} className={view === "game" ? "active" : ""} onClick={() => navigateTo("game")}>Mô phỏng</button>
+          <button aria-current={view === "knowledge" ? "page" : undefined} className={view === "knowledge" ? "active" : ""} onClick={() => navigateTo("knowledge")}>Cẩm nang</button>
+          <button aria-current={view === "stats" ? "page" : undefined} className={view === "stats" ? "active" : ""} onClick={() => navigateTo("stats")}>Thành tích</button>
+          <button aria-current={view === "dashboard" ? "page" : undefined} className={view === "dashboard" ? "active" : ""} onClick={() => navigateTo("dashboard")}>Dashboard</button>
+          {sessionAccount && <button aria-current={view === "admin" ? "page" : undefined} className={view === "admin" ? "active" : ""} onClick={() => navigateTo("admin")}>Quản trị</button>}
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-pressed={dark} onClick={() => setDark((value) => !value)} aria-label="Đổi chế độ sáng tối">{dark ? "☀" : "☾"}</button>
@@ -680,7 +716,7 @@ export default function Home() {
         <div className="game-shell">
           <aside className="scenario-panel">
             <div className="panel-heading">
-              <div><span className="eyebrow">THƯ VIỆN TÌNH HUỐNG</span><h1>Chọn một thử thách</h1></div>
+              <div><span className="eyebrow">{siteContent.copy.libraryEyebrow}</span><h1>{siteContent.copy.libraryTitle}</h1></div>
               <span className="scenario-count">{safeIds.size}/{scenarios.length}</span>
             </div>
             <div className="search-box"><span>⌕</span><input aria-label="Tìm kịch bản" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo tên, kênh..." /></div>
@@ -743,7 +779,7 @@ export default function Home() {
 
           <aside className="insight-panel">
             <div className="coach-card">
-              <span className="eyebrow">HDBANK · IT SECURITY</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
+              <span className="eyebrow">{siteContent.copy.coachEyebrow}</span><h3>Ghi nhớ trong tình huống này</h3><p>{selected.tip}</p>
               <button onClick={() => setGuide(true)}>Xem quy tắc 3 bước</button>
             </div>
             <div className="progress-card">
@@ -762,7 +798,7 @@ export default function Home() {
 
       {view === "knowledge" && (
         <section className="content-page">
-          <div className="page-hero"><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Sáu thói quen nhỏ,<br/>một lớp giáp lớn.</h1><p>Cẩm nang an toàn số giúp bạn nhận ra áp lực, kiểm tra danh tính và giữ quyền kiểm soát trước mọi giao dịch.</p></div>
+          <div className="page-hero"><span className="eyebrow">{siteContent.copy.knowledgeEyebrow}</span><h1>{siteContent.copy.knowledgeTitle}</h1><p>{siteContent.copy.knowledgeIntro}</p></div>
           <div className="knowledge-grid">{knowledgeCards.map((card, index) => <article key={card.title}><span>{String(index + 1).padStart(2, "0")}</span><BadgeIcon>{card.icon}</BadgeIcon><h2>{card.title}</h2><p>{card.text}</p></article>)}</div>
         </section>
       )}
@@ -787,7 +823,7 @@ export default function Home() {
       {view === "dashboard" && (
         <section className="content-page dashboard-page">
           <div className="dashboard-heading">
-            <div><span className="eyebrow">HDBANK · IT SECURITY</span><h1>Dashboard nhận thức an toàn</h1><p>Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu tập trung của toàn bộ người dùng.</p></div>
+            <div><span className="eyebrow">{siteContent.copy.dashboardEyebrow}</span><h1>{siteContent.copy.dashboardTitle}</h1><p>{siteContent.copy.dashboardIntro}</p></div>
             {visibleDashboardStatus === "ready" && <button className="export-button" onClick={exportCisoReport} disabled={!analyticsUsers.length}>⇩ Xuất báo cáo CSV</button>}
           </div>
           {!sessionAccount && <div className="dashboard-gate"><BadgeIcon>◇</BadgeIcon><h2>Đăng nhập để truy cập Dashboard</h2><p>Dữ liệu tổng hợp chỉ dành cho tài khoản đã được IT Security cấp quyền CISO.</p><button className="primary-button" onClick={() => openAuth("login")}>Đăng nhập</button></div>}
@@ -812,7 +848,18 @@ export default function Home() {
         </section>
       )}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>IT SECURITY</b><small>Khiên Số · Đào tạo nhận thức an toàn thông tin</small></span></div><p>Không nhập dữ liệu ngân hàng. Tài khoản và kết quả được bảo vệ trên Supabase.</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      {view === "admin" && <AdminPage
+        account={sessionAccount}
+        publishedContent={siteContent}
+        onLogin={() => openAuth("login")}
+        onPublished={(content) => {
+          setSiteContent(content);
+          setDataStatus("Nội dung website đã được xuất bản.");
+          window.setTimeout(() => setDataStatus(""), 2600);
+        }}
+      />}
+
+      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>{siteContent.copy.departmentName}</b><small>{siteContent.copy.footerTagline}</small></span></div><p>{siteContent.copy.footerNotice}</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
