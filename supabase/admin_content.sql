@@ -29,9 +29,16 @@ stable
 security definer
 set search_path = ''
 as $$
-  select (select auth.uid()) is not null and exists (
-    select 1 from private.app_admins where user_id = (select auth.uid())
-  );
+  select (select auth.uid()) is not null
+    and exists (
+      select 1
+      from auth.sessions session_row
+      where session_row.user_id = (select auth.uid())
+        and session_row.id::text = (select auth.jwt() ->> 'session_id')
+    )
+    and exists (
+      select 1 from private.app_admins where user_id = (select auth.uid())
+    );
 $$;
 
 revoke all on function private.user_is_app_admin() from public, anon;
