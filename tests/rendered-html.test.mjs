@@ -53,6 +53,7 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /role="status"/);
   assert.match(page, /readStoredProgress/);
   assert.match(page, /supabase\.auth\.signUp/);
+  assert.match(page, /emailRedirectTo: PUBLIC_SITE_URL/);
   assert.match(page, /USERNAME_PATTERN/);
   assert.match(page, /PASSWORD_PATTERN/);
   assert.match(page, /Mật khẩu cần 8–72 ký tự/);
@@ -82,6 +83,9 @@ test("ships product metadata and social artwork", async () => {
   assert.match(schema, /alter table public\.site_content enable row level security/);
   assert.match(schema, /site_content_public_read/);
   assert.match(schema, /private\.user_is_app_admin/);
+  assert.match(schema, /auth\.sessions session_row/);
+  assert.match(schema, /auth\.jwt\(\) ->> 'session_id'/);
+  assert.match(schema, /if not \(select private\.user_is_app_admin\(\)\)/);
   assert.match(schema, /username ~ '\^\[a-z0-9\._-\]\{3,24\}\$'/);
   assert.doesNotMatch(page, /PBKDF2|khien-so-accounts|khien-so-session/);
   assert.doesNotMatch(page, /HỖ TRỢ KHẨN CẤP|Liên hệ HDBank 1900 6060/);
