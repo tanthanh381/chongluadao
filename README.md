@@ -23,7 +23,7 @@
 - Row Level Security bảo đảm người dùng thường chỉ đọc/ghi dữ liệu của chính mình
 - `localStorage` chỉ dùng cho giao diện và tiến trình khách chưa đăng nhập
 - Không yêu cầu hoặc thu thập dữ liệu ngân hàng
-- Bộ nhận diện HDBank chính thức với màu đỏ `#BE1128`, vàng `#FFDC00` và logo từ hdbank.com.vn
+- Nhận diện Khiên Số riêng với biểu tượng chiếc khiên, màu đỏ `#BE1128` và vàng `#FFDC00`
 
 ## Chạy cục bộ
 

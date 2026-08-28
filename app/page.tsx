@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- this component also ships through a plain Vite/GitHub Pages build */
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { defaultSiteContent, Difficulty, normalizeSiteContent, SiteContent } from "./data";
 import { AdminPage } from "./admin";
@@ -67,6 +65,10 @@ const difficultyTone: Record<Difficulty, string> = {
 
 function BadgeIcon({ children }: { children: React.ReactNode }) {
   return <span className="badge-icon" aria-hidden="true">{children}</span>;
+}
+
+function BrandMark() {
+  return <span className="khien-logo" aria-hidden="true"><span className="khien-logo-shield"><span>K</span></span><span className="khien-logo-signal" /></span>;
 }
 
 function FooterNotice({ notice }: { notice: string }) {
@@ -703,8 +705,8 @@ export default function Home() {
   return (
     <main className={dark ? "app dark" : "app"}>
       <header className="topbar">
-        <button className="brand" onClick={() => navigateTo("game")} aria-label="HDBank IT Security — về màn chơi">
-          <img className="hdbank-logo" src="hdbank-logo.png" alt="HDBank" />
+        <button className="brand" onClick={() => navigateTo("game")} aria-label="Khiên Số — về màn chơi">
+          <BrandMark />
           <span className="brand-divider" aria-hidden="true" />
           <span className="product-lockup"><strong>{siteContent.copy.productName}</strong><small>{siteContent.copy.departmentName}</small></span>
         </button>
@@ -877,7 +879,7 @@ export default function Home() {
         }}
       />}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>{siteContent.copy.departmentName}</b><small>{siteContent.copy.footerTagline}</small></span></div><FooterNotice notice={siteContent.copy.footerNotice}/><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      <footer><div className="footer-brand" aria-label="Khiên Số"><BrandMark /><span><b>{siteContent.copy.departmentName}</b><small>{siteContent.copy.footerTagline}</small></span></div><FooterNotice notice={siteContent.copy.footerNotice}/><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
