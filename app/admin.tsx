@@ -6,12 +6,30 @@ import { supabase } from "./supabase";
 
 type AdminAccount = { id: string; displayName: string; email: string };
 type AdminState = "checking" | "ready" | "forbidden" | "error";
-type AdminTab = "general" | "scenarios" | "knowledge";
+type ContentRole = "admin" | "editor";
+type ManagedRole = ContentRole | "member";
+type ManagedUser = { id: string; email: string; username: string; displayName: string; createdAt: string; role: ManagedRole };
+type AdminTab = "general" | "scenarios" | "knowledge" | "users";
 
 const difficultyOptions: Difficulty[] = ["Dễ", "Trung bình", "Khó", "Rất khó"];
 
 function cloneContent(content: SiteContent): SiteContent {
   return structuredClone(content);
+}
+
+function parseManagementContext(value: unknown): { role: ContentRole; users: ManagedUser[] } | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (record.role !== "admin" && record.role !== "editor") return null;
+  const users = Array.isArray(record.users) ? record.users.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const user = item as Record<string, unknown>;
+    if (typeof user.id !== "string" || typeof user.email !== "string" || typeof user.username !== "string"
+      || typeof user.display_name !== "string" || typeof user.created_at !== "string"
+      || (user.role !== "admin" && user.role !== "editor" && user.role !== "member")) return [];
+    return [{ id: user.id, email: user.email, username: user.username, displayName: user.display_name, createdAt: user.created_at, role: user.role }];
+  }) : [];
+  return { role: record.role, users };
 }
 
 export function AdminPage({
@@ -33,13 +51,16 @@ export function AdminPage({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [role, setRole] = useState<ContentRole | null>(null);
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
+  const [changingUserId, setChangingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!account) return;
     let active = true;
     void (async () => {
       setAccess("checking");
-      const permission = await supabase.rpc("get_ciso_dashboard");
+      const permission = await supabase.rpc("get_content_management_access");
       if (!active) return;
       if (permission.error?.code === "42501") {
         setAccess("forbidden");
@@ -49,6 +70,13 @@ export function AdminPage({
         setAccess("error");
         return;
       }
+      const context = parseManagementContext(permission.data);
+      if (!context) {
+        setAccess("error");
+        return;
+      }
+      setRole(context.role);
+      setManagedUsers(context.users);
       const { data, error } = await supabase
         .from("site_content")
         .select("slug, content, updated_at")
@@ -162,6 +190,10 @@ export function AdminPage({
 
   async function save(target: "draft" | "publish") {
     if (!account) return;
+    if (target === "publish" && role !== "admin") {
+      setStatus("Biên tập viên chỉ có thể lưu bản nháp. Hãy gửi nội dung cho Quản trị viên để xuất bản.");
+      return;
+    }
     const normalized = normalizeSiteContent(draft);
     if (!normalized) {
       setStatus("Nội dung chưa hợp lệ. Mỗi tình huống cần đúng 3 lựa chọn và chỉ 1 đáp án đúng.");
@@ -205,6 +237,31 @@ export function AdminPage({
     setBusy(false);
   }
 
+  async function changeUserRole(user: ManagedUser, nextRole: ManagedRole) {
+    if (role !== "admin" || user.id === account?.id) return;
+    setChangingUserId(user.id);
+    setStatus(`Đang cập nhật quyền cho ${user.displayName}…`);
+    const result = await supabase.rpc("set_content_manager_role", {
+      target_user_id: user.id,
+      target_role: nextRole,
+    });
+    if (result.error) {
+      setChangingUserId(null);
+      setStatus("Không thể cập nhật quyền. Vui lòng tải lại và kiểm tra phiên đăng nhập.");
+      return;
+    }
+    const refreshed = await supabase.rpc("get_content_management_access");
+    const context = parseManagementContext(refreshed.data);
+    if (refreshed.error || !context) {
+      setChangingUserId(null);
+      setStatus("Quyền đã thay đổi nhưng chưa thể tải lại danh sách tài khoản.");
+      return;
+    }
+    setManagedUsers(context.users);
+    setChangingUserId(null);
+    setStatus(`Đã cấp quyền ${nextRole === "admin" ? "Quản trị" : nextRole === "editor" ? "Biên tập viên" : "Thành viên"} cho ${user.displayName}.`);
+  }
+
   if (!account) return <AdminGate title="Đăng nhập để quản trị nội dung" detail="Trang này chỉ dành cho tài khoản được IT Security cấp quyền quản trị." action={onLogin} />;
   if (access === "checking") return <AdminGate title="Đang kiểm tra quyền quản trị…" detail="Vui lòng chờ trong giây lát." />;
   if (access === "forbidden") return <AdminGate title="Tài khoản chưa có quyền quản trị" detail="Quyền được kiểm tra trực tiếp trên máy chủ. Hãy liên hệ quản trị viên hệ thống để được cấp quyền." />;
@@ -214,14 +271,16 @@ export function AdminPage({
     <section className="content-page admin-page">
       <div className="admin-heading">
         <div><span className="eyebrow">KHIÊN SỐ · QUẢN TRỊ NỘI DUNG</span><h1>Trung tâm nội dung</h1><p>Chỉnh sửa bản nháp, rà soát và xuất bản nội dung cho toàn bộ website.</p></div>
-        <div className="admin-actions"><button className="admin-secondary" disabled={busy} onClick={() => { setDraft(cloneContent(published)); setStatus("Đã khôi phục bản nháp từ nội dung đang xuất bản."); }}>Khôi phục bản đã đăng</button><button className="admin-secondary" disabled={busy} onClick={() => void save("draft")}>Lưu bản nháp</button><button className="primary-button" disabled={busy} onClick={() => void save("publish")}>Xuất bản</button></div>
+        <div className="admin-actions"><button className="admin-secondary" disabled={busy} onClick={() => { setDraft(cloneContent(published)); setStatus("Đã khôi phục bản nháp từ nội dung đang xuất bản."); }}>Khôi phục bản đã đăng</button><button className="admin-secondary" disabled={busy} onClick={() => void save("draft")}>Lưu bản nháp</button>{role === "admin" && <button className="primary-button" disabled={busy} onClick={() => void save("publish")}>Xuất bản</button>}</div>
       </div>
-      <div className="admin-meta"><span><b>Quản trị viên:</b> {account.displayName} · {account.email}</span><span><b>Cập nhật gần nhất:</b> {updatedAt ? new Date(updatedAt).toLocaleString("vi-VN") : "Chưa có"}</span></div>
+      <div className="admin-meta"><span><b>{role === "admin" ? "Quản trị viên" : "Biên tập viên"}:</b> {account.displayName} · {account.email}</span><span><b>Cập nhật gần nhất:</b> {updatedAt ? new Date(updatedAt).toLocaleString("vi-VN") : "Chưa có"}</span></div>
+      {role === "editor" && <div className="admin-role-note" role="note"><strong>Quyền Biên tập viên</strong><span>Bạn có thể chỉnh sửa và lưu bản nháp. Chỉ Quản trị viên mới được xuất bản nội dung.</span></div>}
       {status && <div className="admin-status" role="status" aria-live="polite">{status}</div>}
       <div className="admin-tabs" role="tablist" aria-label="Nhóm nội dung">
         <button role="tab" aria-selected={tab === "general"} className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>Nội dung chung</button>
         <button role="tab" aria-selected={tab === "scenarios"} className={tab === "scenarios" ? "active" : ""} onClick={() => setTab("scenarios")}>Tình huống ({draft.scenarios.length})</button>
         <button role="tab" aria-selected={tab === "knowledge"} className={tab === "knowledge" ? "active" : ""} onClick={() => setTab("knowledge")}>Cẩm nang ({draft.knowledgeCards.length})</button>
+        {role === "admin" && <button role="tab" aria-selected={tab === "users"} className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>Phân quyền ({managedUsers.length})</button>}
       </div>
 
       {tab === "general" && <div className="admin-form-grid">
@@ -254,6 +313,11 @@ export function AdminPage({
       </div>}
 
       {tab === "knowledge" && <div className="knowledge-admin"><div className="admin-section-title"><div><span className="eyebrow">CẨM NANG AN TOÀN</span><h2>Thẻ kiến thức</h2></div><button className="admin-secondary" onClick={addKnowledge}>+ Thêm thẻ</button></div><div className="knowledge-admin-grid">{draft.knowledgeCards.map((card, index) => <article key={index}><div className="knowledge-admin-head"><b>{String(index + 1).padStart(2, "0")}</b><button onClick={() => removeKnowledge(index)} aria-label={`Xóa ${card.title}`}>×</button></div><label><span>Biểu tượng</span><input value={card.icon} maxLength={12} onChange={(event) => changeKnowledge(index, { icon: event.target.value })} /></label><label><span>Tiêu đề</span><input value={card.title} onChange={(event) => changeKnowledge(index, { title: event.target.value })} /></label><label><span>Nội dung</span><textarea rows={5} value={card.text} onChange={(event) => changeKnowledge(index, { text: event.target.value })} /></label></article>)}</div></div>}
+
+      {tab === "users" && role === "admin" && <div className="role-management">
+        <div className="admin-section-title"><div><span className="eyebrow">PHÂN QUYỀN HỆ THỐNG</span><h2>Tài khoản và nhóm quyền</h2><p>Quản trị viên có toàn quyền; Biên tập viên chỉ soạn và lưu bản nháp.</p></div></div>
+        <div className="role-table-wrap"><table><thead><tr><th>Tài khoản</th><th>Ngày đăng ký</th><th>Nhóm quyền</th></tr></thead><tbody>{managedUsers.map((user) => <tr key={user.id}><td><strong>{user.displayName}</strong><small>@{user.username} · {user.email}</small></td><td>{new Date(user.createdAt).toLocaleDateString("vi-VN")}</td><td><select aria-label={`Nhóm quyền của ${user.displayName}`} value={user.role} disabled={user.id === account.id || changingUserId === user.id} onChange={(event) => void changeUserRole(user, event.target.value as ManagedRole)}><option value="member">Thành viên</option><option value="editor">Biên tập viên</option><option value="admin">Quản trị</option></select>{user.id === account.id && <small className="self-role-note">Tài khoản hiện tại</small>}</td></tr>)}</tbody></table></div>
+      </div>}
     </section>
   );
 }
