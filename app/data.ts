@@ -248,7 +248,7 @@ export const defaultSiteContent: SiteContent = {
     dashboardTitle: "Dashboard nhận thức an toàn",
     dashboardIntro: "Góc nhìn tổng hợp phục vụ báo cáo CISO trên dữ liệu tập trung của toàn bộ người dùng.",
     footerTagline: "Khiên Số · Đào tạo nhận thức an toàn thông tin",
-    footerNotice: "Không nhập dữ liệu ngân hàng. Tài khoản và kết quả được bảo vệ trên Supabase.",
+    footerNotice: "**Website được quản lý và vận hành bởi: IT Security Team - HDBank.**\nĐược xây dựng với mục tiêu nâng cao nhận thức cộng đồng về phòng chống tội phạm lừa đảo trực tuyến.",
   },
   scenarios,
   knowledgeCards,
