@@ -34,9 +34,12 @@ test("server renders the Khiên Số experience", async () => {
 });
 
 test("ships product metadata and social artwork", async () => {
-  const [layout, page, packageJson] = await Promise.all([
+  const [layout, page, admin, data, schema, packageJson] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
@@ -64,7 +67,18 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /resetAuthForm/);
   assert.match(page, /loadRemoteAccount/);
   assert.match(page, /exportCisoReport/);
-  assert.match(page, /Dashboard nhận thức an toàn/);
+  assert.match(data, /Dashboard nhận thức an toàn/);
+  assert.match(page, /site_content/);
+  assert.match(page, /#\/admin/);
+  assert.match(page, /AdminPage/);
+  assert.match(admin, /Lưu bản nháp/);
+  assert.match(admin, /Xuất bản/);
+  assert.match(admin, /main-draft/);
+  assert.match(admin, /get_ciso_dashboard/);
+  assert.match(data, /normalizeSiteContent/);
+  assert.match(schema, /alter table public\.site_content enable row level security/);
+  assert.match(schema, /site_content_public_read/);
+  assert.match(schema, /private\.user_is_app_admin/);
   assert.doesNotMatch(page, /PBKDF2|khien-so-accounts|khien-so-session/);
   assert.doesNotMatch(page, /HỖ TRỢ KHẨN CẤP|Liên hệ HDBank 1900 6060/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
