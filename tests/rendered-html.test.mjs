@@ -48,6 +48,7 @@ test("ships product metadata and social artwork", async () => {
   assert.match(layout, /lang="vi"/);
   assert.match(page, /localStorage/);
   assert.match(page, /KHIÊN SỐ/);
+  assert.match(page, /FooterNotice/);
   assert.match(page, /event\.key === "Escape"/);
   assert.match(page, /aria-pressed/);
   assert.match(page, /role="status"/);
@@ -72,6 +73,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /loadRemoteAccount/);
   assert.match(page, /exportCisoReport/);
   assert.match(data, /Dashboard nhận thức an toàn/);
+  assert.match(data, /Website được quản lý và vận hành bởi: IT Security Team - HDBank/);
+  assert.match(data, /nâng cao nhận thức cộng đồng về phòng chống tội phạm lừa đảo trực tuyến/);
   assert.match(page, /site_content/);
   assert.match(page, /#\/admin/);
   assert.match(page, /AdminPage/);
@@ -89,6 +92,7 @@ test("ships product metadata and social artwork", async () => {
   assert.match(schema, /username ~ '\^\[a-z0-9\._-\]\{3,24\}\$'/);
   assert.doesNotMatch(page, /PBKDF2|khien-so-accounts|khien-so-session/);
   assert.doesNotMatch(page, /HỖ TRỢ KHẨN CẤP|Liên hệ HDBank 1900 6060/);
+  assert.doesNotMatch(data, /Tài khoản và kết quả được bảo vệ trên Supabase/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../public/hdbank-logo.png", import.meta.url));
