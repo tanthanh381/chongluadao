@@ -88,6 +88,10 @@ test("ships product metadata and social artwork", async () => {
   assert.match(admin, /set_content_manager_role/);
   assert.match(admin, /Biên tập viên chỉ có thể lưu bản nháp/);
   assert.match(admin, /Phân quyền/);
+  assert.match(admin, /grantRoleByIdentity/);
+  assert.match(admin, /Email hoặc tên đăng nhập/);
+  assert.match(admin, /Cấp quyền/);
+  assert.match(admin, /Người dùng cần đăng ký và xác nhận email/);
   assert.match(data, /normalizeSiteContent/);
   assert.match(schema, /alter table public\.site_content enable row level security/);
   assert.match(schema, /site_content_public_read/);
