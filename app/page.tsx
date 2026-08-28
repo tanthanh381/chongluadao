@@ -71,8 +71,10 @@ function BadgeIcon({ children }: { children: React.ReactNode }) {
 
 function FooterNotice({ notice }: { notice: string }) {
   const match = notice.match(/^\*\*(.+?)\*\*\s*([\s\S]*)$/);
-  if (!match) return <p className="footer-notice">{notice}</p>;
-  return <p className="footer-notice"><strong>{match[1]}</strong>{match[2] && <span>{match[2].trim()}</span>}</p>;
+  const heading = match?.[1];
+  const detail = match?.[2] ?? notice;
+  const lines = detail.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  return <p className="footer-notice">{heading && <strong>{heading}</strong>}{lines.map((line, index) => <span className={line.startsWith("Lưu ý:") ? "footer-warning" : undefined} key={`${index}-${line}`}>{line}</span>)}</p>;
 }
 
 function readStoredProgress(key: string): StoredProgress | null {
