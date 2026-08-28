@@ -9,7 +9,14 @@ create table public.profiles (
   username text not null unique,
   display_name text not null,
   created_at timestamptz not null default now(),
-  constraint profiles_username_format check (username ~ '^[a-z0-9._-]{3,24}$'),
+  constraint profiles_username_format check (
+    char_length(username) between 8 and 24
+    and username ~ '^[A-Za-z0-9!@#$%^&*._-]+$'
+    and username ~ '[A-Z]'
+    and username ~ '[a-z]'
+    and username ~ '[0-9]'
+    and username ~ '[!@#$%^&*._-]'
+  ),
   constraint profiles_display_name_length check (char_length(display_name) between 2 and 32)
 );
 
@@ -153,10 +160,16 @@ security definer
 set search_path = ''
 as $$
 declare
-  requested_username text := lower(trim(coalesce(new.raw_user_meta_data ->> 'username', '')));
+  requested_username text := trim(coalesce(new.raw_user_meta_data ->> 'username', ''));
   requested_display_name text := trim(coalesce(new.raw_user_meta_data ->> 'display_name', ''));
 begin
-  if requested_username !~ '^[a-z0-9._-]{3,24}$' then
+  if char_length(requested_username) not between 8 and 24
+    or requested_username !~ '^[A-Za-z0-9!@#$%^&*._-]+$'
+    or requested_username !~ '[A-Z]'
+    or requested_username !~ '[a-z]'
+    or requested_username !~ '[0-9]'
+    or requested_username !~ '[!@#$%^&*._-]'
+  then
     raise exception 'invalid username';
   end if;
   if char_length(requested_display_name) not between 2 and 32 then
