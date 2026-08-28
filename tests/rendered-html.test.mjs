@@ -112,10 +112,13 @@ test("ships product metadata and social artwork", async () => {
   assert.doesNotMatch(data, /Tài khoản và kết quả được bảo vệ trên Supabase/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await access(new URL("../public/og.png", import.meta.url));
-  await access(new URL("../public/favicon.svg", import.meta.url));
+  await access(new URL("../public/khien-so-logo.png", import.meta.url));
+  await assert.rejects(access(new URL("../public/favicon.svg", import.meta.url)));
   await assert.rejects(access(new URL("../public/hdbank-logo.png", import.meta.url)));
   await assert.rejects(access(new URL("../public/favicon.png", import.meta.url)));
   assert.match(page, /function BrandMark/);
+  assert.match(styles, /khien-so-logo\.png/);
+  assert.doesNotMatch(styles, /khien-logo-shield|khien-logo-signal/);
   assert.doesNotMatch(page, /hdbank-logo\.png|alt="HDBank"|className="hdbank-logo"/);
   assert.match(styles, /\.app \{[^}]*color: var\(--ink\)/);
   assert.match(styles, /\.app\.dark \{[^}]*color-scheme: dark/);

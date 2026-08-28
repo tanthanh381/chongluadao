@@ -68,7 +68,7 @@ function BadgeIcon({ children }: { children: React.ReactNode }) {
 }
 
 function BrandMark() {
-  return <span className="khien-logo" aria-hidden="true"><span className="khien-logo-shield"><span>K</span></span><span className="khien-logo-signal" /></span>;
+  return <span className="brand-logo" aria-hidden="true" />;
 }
 
 function FooterNotice({ notice }: { notice: string }) {
