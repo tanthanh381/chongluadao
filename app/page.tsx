@@ -47,6 +47,7 @@ type ScenarioRisk = { scenarioId: number; attempts: number; wrong: number; rate:
 
 const LEGACY_PROGRESS_KEY = "khien-so-progress";
 const THEME_KEY = "khien-so-theme";
+const PUBLIC_SITE_URL = "https://tanthanh381.github.io/chongluadao/";
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,24}$/;
 const PASSWORD_PATTERN = /^(?=.{8,72}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])\S+$/;
 
@@ -606,7 +607,10 @@ export default function Home() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password: authPassword,
-          options: { data: { username, display_name: displayName } },
+          options: {
+            emailRedirectTo: PUBLIC_SITE_URL,
+            data: { username, display_name: displayName },
+          },
         });
         if (error) {
           setAuthError(error.message.toLowerCase().includes("database")
