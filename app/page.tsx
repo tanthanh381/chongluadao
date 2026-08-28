@@ -47,6 +47,7 @@ type ScenarioRisk = { scenarioId: number; attempts: number; wrong: number; rate:
 
 const LEGACY_PROGRESS_KEY = "khien-so-progress";
 const THEME_KEY = "khien-so-theme";
+const USERNAME_PATTERN = /^(?=.{8,24}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*._-])[A-Za-z\d!@#$%^&*._-]+$/;
 
 function progressKey(username: string | null) {
   return `khien-so-progress:${username ?? "guest"}`;
@@ -566,7 +567,7 @@ export default function Home() {
 
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const username = authUsername.trim().toLowerCase();
+    const username = authUsername.trim();
     const email = authEmail.trim().toLowerCase();
     setAuthError("");
     setAuthNotice("");
@@ -575,8 +576,8 @@ export default function Home() {
       setAuthError("Vui lòng nhập địa chỉ email hợp lệ.");
       return;
     }
-    if (authMode === "register" && !/^[a-z0-9._-]{3,24}$/.test(username)) {
-      setAuthError("Tên đăng nhập cần 3–24 ký tự: chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới.");
+    if (authMode === "register" && !USERNAME_PATTERN.test(username)) {
+      setAuthError("Tên đăng nhập cần 8–24 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt (!@#$%^&*._-).");
       return;
     }
     if (authPassword.length < 8) {
@@ -890,7 +891,7 @@ export default function Home() {
         <p className="auth-intro">Đăng nhập để lưu kết quả và tiếp tục trên thiết bị khác. Không sử dụng mật khẩu ngân hàng thật.</p>
         <form className="auth-form" onSubmit={submitAuth}>
           {authMode === "register" && <label><span>Tên hiển thị</span><input autoComplete="name" value={authDisplayName} maxLength={32} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Ví dụ: Minh An" /></label>}
-          {authMode === "register" && <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="minhan_01" autoCapitalize="none" spellCheck={false} /></label>}
+          {authMode === "register" && <label><span>Tên đăng nhập</span><input autoComplete="username" value={authUsername} minLength={8} maxLength={24} onChange={(event) => setAuthUsername(event.target.value)} placeholder="MinhAn@01" autoCapitalize="none" spellCheck={false} /></label>}
           <label><span>Email</span><input type="email" autoComplete="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="ten@hdbank.com.vn" autoCapitalize="none" spellCheck={false} /></label>
           <label><span>Mật khẩu</span><input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Ít nhất 8 ký tự" /></label>
           {authMode === "register" && <label><span>Xác nhận mật khẩu</span><input type="password" autoComplete="new-password" value={authConfirmPassword} onChange={(event) => setAuthConfirmPassword(event.target.value)} placeholder="Nhập lại mật khẩu" /></label>}
