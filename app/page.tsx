@@ -69,6 +69,12 @@ function BadgeIcon({ children }: { children: React.ReactNode }) {
   return <span className="badge-icon" aria-hidden="true">{children}</span>;
 }
 
+function FooterNotice({ notice }: { notice: string }) {
+  const match = notice.match(/^\*\*(.+?)\*\*\s*([\s\S]*)$/);
+  if (!match) return <p className="footer-notice">{notice}</p>;
+  return <p className="footer-notice"><strong>{match[1]}</strong>{match[2] && <span>{match[2].trim()}</span>}</p>;
+}
+
 function readStoredProgress(key: string): StoredProgress | null {
   try {
     const raw = localStorage.getItem(key);
@@ -869,7 +875,7 @@ export default function Home() {
         }}
       />}
 
-      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>{siteContent.copy.departmentName}</b><small>{siteContent.copy.footerTagline}</small></span></div><p>{siteContent.copy.footerNotice}</p><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
+      <footer><div className="footer-brand"><img src="hdbank-logo.png" alt="HDBank"/><span><b>{siteContent.copy.departmentName}</b><small>{siteContent.copy.footerTagline}</small></span></div><FooterNotice notice={siteContent.copy.footerNotice}/><button onClick={() => setGuide(true)}>Hướng dẫn & trợ giúp</button></footer>
 
       {lossNotice && <Modal open onClose={() => setLossNotice(null)} labelledBy="loss-notice-title" className="loss-modal">
         <button className="modal-close" aria-label="Đóng cảnh báo tổn thất" onClick={() => setLossNotice(null)}>×</button>
