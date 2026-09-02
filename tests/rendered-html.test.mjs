@@ -99,8 +99,9 @@ test("ships product metadata and social artwork", async () => {
   assert.match(admin, /Người dùng cần đăng ký và xác nhận email/);
   assert.match(data, /normalizeSiteContent/);
   const scenarioIds = [...data.matchAll(/\bid:\s*(\d+),/g)].map((match) => Number(match[1]));
-  assert.equal(new Set(scenarioIds).size, 30);
-  assert.equal(Math.max(...scenarioIds), 30);
+  assert.equal(new Set(scenarioIds).size, 36);
+  assert.equal(Math.max(...scenarioIds), 36);
+  assert.match(page, /Thợ săn xu hướng mới/);
   assert.match(schema, /alter table public\.site_content enable row level security/);
   assert.match(schema, /site_content_public_read/);
   assert.match(schema, /private\.user_is_app_admin/);

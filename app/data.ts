@@ -413,6 +413,72 @@ export const scenarios: Scenario[] = [
       { text: "Tin vì nhiều người trong phòng đã rút được tiền", correct: false, moneyDelta: -50000000, awarenessDelta: -30, feedback: "Các tài khoản khoe lãi có thể do cùng một nhóm điều khiển để tạo bằng chứng xã hội giả." },
     ],
   },
+  {
+    id: 31, title: "Thông báo nhập học và học bổng giả", category: "Giáo dục", difficulty: "Khó", channel: "Email", icon: "▤",
+    story: "Ngay trước ngày nhập học, bạn nhận email có logo, con dấu và chữ ký giống trường đại học. Thư báo được cấp học bổng nhưng phải chuyển gấp ‘phí xác nhận hồ sơ’ và ‘phí đồng phục’ vào tài khoản cá nhân trong ngày.",
+    redFlags: ["Email không thuộc tên miền chính thức", "Thu phí vào tài khoản cá nhân", "Học bổng kèm thời hạn chuyển tiền gấp"],
+    tip: "Đối chiếu thông báo trên cổng tuyển sinh và gọi phòng đào tạo qua số công khai. Không dùng số điện thoại hoặc tài khoản có trong chính email đáng ngờ.", evidence: "Email và giấy báo nhập học giả",
+    choices: [
+      { text: "Không chuyển tiền, tự liên hệ phòng đào tạo qua kênh chính thức", correct: true, moneyDelta: 0, awarenessDelta: 8, feedback: "Đúng. Xác minh độc lập giúp bạn phát hiện giấy tờ được làm giả dù hình thức rất thuyết phục." },
+      { text: "Chuyển phí để giữ học bổng rồi hỏi trường sau", correct: false, moneyDelta: -8500000, awarenessDelta: -23, feedback: "Thời hạn gấp là cách buộc bạn thanh toán trước khi kịp xác minh." },
+      { text: "Trả lời email và xin ảnh thẻ nhân viên của người phụ trách", correct: false, moneyDelta: 0, awarenessDelta: -11, feedback: "Kẻ gian có thể tiếp tục gửi giấy tờ giả. Bạn cần rời khỏi kênh liên lạc đó và tự tìm đầu mối của trường." },
+    ],
+  },
+  {
+    id: 32, title: "Fanpage khách sạn tích xanh yêu cầu đặt cọc", category: "Du lịch", difficulty: "Khó", channel: "Mạng xã hội", icon: "⌂",
+    story: "Bạn tìm thấy fanpage mang tên một khu nghỉ dưỡng nổi tiếng, có dấu xác minh và nhiều bình luận đặt phòng. Nhân viên báo chỉ còn một phòng giá tốt, yêu cầu chuyển cọc 70% vào tài khoản cá nhân để nhận mã xác nhận.",
+    redFlags: ["Dấu xác minh không khớp danh tính pháp nhân", "Tài khoản nhận tiền cá nhân", "Tạo khan hiếm để ép đặt cọc"],
+    tip: "Dấu xác minh và lượt theo dõi không thay thế việc kiểm tra. Tự gọi số trên website chính thức để xác nhận fanpage, mã đặt phòng và tài khoản nhận tiền.", evidence: "Hồ sơ fanpage lưu trú giả mạo",
+    choices: [
+      { text: "Tạm dừng và gọi khách sạn qua số trên website chính thức", correct: true, moneyDelta: 0, awarenessDelta: 8, feedback: "Chính xác. Cơ sở lưu trú thật có thể xác nhận ngay fanpage, tài khoản và tình trạng phòng." },
+      { text: "Chuyển cọc vì fanpage đã có tích xanh", correct: false, moneyDelta: -18000000, awarenessDelta: -25, feedback: "Tài khoản có thể bị chiếm, đổi tên hoặc dùng dấu xác minh gây hiểu nhầm. Tích xanh không bảo lãnh giao dịch." },
+      { text: "Chỉ chuyển 20% để giảm rủi ro", correct: false, moneyDelta: -5000000, awarenessDelta: -15, feedback: "Chuyển ít hơn vẫn mất tiền và tạo cơ hội để kẻ gian tiếp tục yêu cầu thanh toán." },
+    ],
+  },
+  {
+    id: 33, title: "Livestream vé cào báo trúng giải lớn", category: "Trúng thưởng", difficulty: "Trung bình", channel: "Livestream", icon: "▱",
+    story: "Trong một buổi phát trực tiếp, người bán cào vé bạn vừa mua và thông báo trúng điện thoại đắt tiền. Để nhận giải, bạn phải lần lượt nộp phí sàn, thuế thu nhập và phí sửa ‘lỗi xác minh giao dịch’.",
+    redFlags: ["Người bán tự kiểm soát kết quả trúng", "Thu nhiều khoản phí nối tiếp", "Yêu cầu chuyển tiền ngoài nền tảng"],
+    tip: "Không chuyển tiền để nhận phần thưởng từ livestream chưa được xác minh. Một khoản phí mới sau mỗi lần thanh toán là dấu hiệu điển hình của bẫy phí nối tiếp.", evidence: "Chuỗi yêu cầu phí nhận thưởng",
+    choices: [
+      { text: "Dừng thanh toán, lưu buổi phát và báo cáo tài khoản", correct: true, moneyDelta: 0, awarenessDelta: 7, feedback: "Đúng. Bằng chứng buổi phát, tin nhắn và giao dịch giúp nền tảng cùng cơ quan chức năng xử lý." },
+      { text: "Nộp thuế vì giải thưởng có giá trị cao hơn nhiều", correct: false, moneyDelta: -12500000, awarenessDelta: -22, feedback: "Sau khoản này, kẻ gian thường tiếp tục dựng thêm lỗi và phí để kéo dài việc chiếm đoạt." },
+      { text: "Nhờ người bán trừ phí trực tiếp vào giải thưởng", correct: false, moneyDelta: 0, awarenessDelta: -9, feedback: "Nếu chương trình là giả, không có giải thưởng nào để khấu trừ. Hãy ngừng tương tác và báo cáo." },
+    ],
+  },
+  {
+    id: 34, title: "Cuộc gọi nhạy cảm biến thành màn tống tiền", category: "Tống tiền", difficulty: "Rất khó", channel: "Video call", icon: "⊘",
+    story: "Một tài khoản mới quen nhanh chóng tỏ ra thân mật và rủ bạn gọi video riêng tư. Sau cuộc gọi, người này gửi đoạn ghi màn hình, đe dọa phát tán cho gia đình và đồng nghiệp nếu bạn không chuyển tiền ngay.",
+    redFlags: ["Người lạ thân mật bất thường", "Dụ thực hiện nội dung nhạy cảm", "Đe dọa phát tán để ép chuyển tiền"],
+    tip: "Không thực hiện cuộc gọi nhạy cảm với người lạ. Nếu bị đe dọa, không trả tiền; lưu bằng chứng, khóa quyền riêng tư, báo nền tảng và trình báo công an.", evidence: "Tin nhắn đe dọa tống tiền",
+    choices: [
+      { text: "Không chuyển tiền, lưu bằng chứng và trình báo ngay", correct: true, moneyDelta: 0, awarenessDelta: 10, feedback: "Đúng. Trả tiền không bảo đảm nội dung bị xóa và thường dẫn tới các yêu cầu lớn hơn." },
+      { text: "Chuyển một lần để họ xóa video", correct: false, moneyDelta: -30000000, awarenessDelta: -30, feedback: "Kẻ tống tiền vẫn giữ bản sao và biết bạn có khả năng chi trả, nên có thể tiếp tục uy hiếp." },
+      { text: "Xóa toàn bộ tin nhắn và tài khoản ngay", correct: false, moneyDelta: 0, awarenessDelta: -18, feedback: "Xóa vội làm mất bằng chứng cần thiết. Hãy lưu lại trước khi chặn và báo cáo." },
+    ],
+  },
+  {
+    id: 35, title: "Livestream ‘đổ thạch’ cam kết mua lại đá quý", category: "Mua sắm", difficulty: "Rất khó", channel: "Livestream", icon: "◈",
+    story: "Kênh livestream mời bạn mua một viên đá thô để đập trực tiếp. Người dẫn cam kết nếu bên trong có ruby sẽ mua lại ngay với giá gấp nhiều lần; các tài khoản trong phần bình luận liên tục khoe vừa bán lại thành công.",
+    redFlags: ["Người bán kiểm soát cả hàng hóa và kết quả", "Cam kết mua lại lợi nhuận cao", "Bình luận chim mồi tạo hiệu ứng đám đông"],
+    tip: "Không tham gia trò may rủi trá hình hoặc mua vật phẩm mà giá trị chỉ do người bán tự tuyên bố. Bình luận và kết quả trên livestream có thể được dàn dựng.", evidence: "Kịch bản livestream đổ thạch dàn dựng",
+    choices: [
+      { text: "Không mua, rời livestream và báo cáo nội dung đáng ngờ", correct: true, moneyDelta: 0, awarenessDelta: 9, feedback: "Đúng. Bạn không để sân khấu trực tiếp và đám đông giả thay thế việc thẩm định độc lập." },
+      { text: "Mua một viên nhỏ để thử vận may", correct: false, moneyDelta: -4500000, awarenessDelta: -18, feedback: "Đá có thể không có giá trị và toàn bộ quá trình mở, định giá, mua lại đều do cùng nhóm kiểm soát." },
+      { text: "Tin vì có nhiều người bình luận đã nhận tiền", correct: false, moneyDelta: -18000000, awarenessDelta: -24, feedback: "Các tài khoản bình luận có thể là chim mồi do đường dây vận hành." },
+    ],
+  },
+  {
+    id: 36, title: "Thiệp chúc mừng kèm tệp cài mã độc", category: "Mã độc", difficulty: "Khó", channel: "Email công việc", icon: "✣",
+    story: "Bạn nhận email mang tên một đối tác quen, đính kèm ‘thiệp chúc mừng’ và ‘hóa đơn quà tặng’. Khi mở, tệp yêu cầu bật macro hoặc cài tiện ích để xem đầy đủ nội dung.",
+    redFlags: ["Tệp đính kèm bất ngờ", "Yêu cầu bật macro hoặc cài tiện ích", "Tên người gửi quen nhưng địa chỉ email sai khác"],
+    tip: "Xác minh với người gửi qua kênh khác và không bật macro, chạy tệp thực thi hay cài tiện ích từ email. Báo bộ phận an toàn thông tin khi dùng thiết bị công việc.", evidence: "Email và tệp đính kèm phát tán mã độc",
+    choices: [
+      { text: "Không mở tệp, xác minh với đối tác và báo IT Security", correct: true, moneyDelta: 0, awarenessDelta: 9, feedback: "Chính xác. Xác minh ngoài email và báo sớm giúp bảo vệ cả thiết bị lẫn hệ thống nội bộ." },
+      { text: "Bật macro vì tệp đến từ đối tác quen", correct: false, moneyDelta: -40000000, awarenessDelta: -30, feedback: "Tài khoản đối tác có thể bị chiếm hoặc địa chỉ người gửi bị giả. Macro có thể tải và chạy mã độc." },
+      { text: "Chuyển tệp sang máy cá nhân để mở", correct: false, moneyDelta: 0, awarenessDelta: -19, feedback: "Chuyển thiết bị không làm tệp an toàn và còn mở rộng phạm vi lây nhiễm." },
+    ],
+  },
 ];
 
 export type KnowledgeCard = {
