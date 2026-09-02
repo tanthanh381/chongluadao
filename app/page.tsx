@@ -42,6 +42,18 @@ type AnalyticsUser = {
 };
 type DashboardStatus = "idle" | "loading" | "ready" | "forbidden" | "error";
 type ScenarioRisk = { scenarioId: number; attempts: number; wrong: number; rate: number };
+type BadgeTone = "starter" | "bronze" | "silver" | "gold" | "expert" | "legendary";
+type DefenseBadge = {
+  icon: string;
+  name: string;
+  description: string;
+  tier: string;
+  tone: BadgeTone;
+  current: number;
+  target: number;
+  progress: number;
+  unlocked: boolean;
+};
 
 const LEGACY_PROGRESS_KEY = "khien-so-progress";
 const THEME_KEY = "khien-so-theme";
@@ -369,14 +381,31 @@ export default function Home() {
     return best;
   }, [results]);
 
-  const unlockedBadges = [
-    { icon: "◇", name: "Tân binh cảnh giác", unlocked: results.length >= 1 },
-    { icon: "◉", name: "Mắt thần phishing", unlocked: safeIds.has(2) && safeIds.has(8) },
-    { icon: "⌗", name: "Thợ săn QR giả", unlocked: safeIds.has(5) },
-    { icon: "✦", name: "Khắc tinh deepfake", unlocked: safeIds.has(3) },
-    { icon: "▲", name: "Chuỗi 3 an toàn", unlocked: streak >= 3 },
-    { icon: "⬢", name: "Chuyên gia Khiên Số", unlocked: safeIds.size === scenarios.length },
+  const createBadge = (badge: Omit<DefenseBadge, "progress" | "unlocked">): DefenseBadge => ({
+    ...badge,
+    progress: Math.min(100, Math.round((badge.current / badge.target) * 100)),
+    unlocked: badge.current >= badge.target,
+  });
+  const safeIn = (ids: number[]) => ids.filter((id) => safeIds.has(id)).length;
+  const defenseBadges: DefenseBadge[] = [
+    createBadge({ icon: "◇", name: "Tân binh cảnh giác", description: "Hoàn thành tình huống đầu tiên và bắt đầu hồ sơ phòng vệ.", tier: "Khởi động", tone: "starter", current: Math.min(results.length, 1), target: 1 }),
+    createBadge({ icon: "⬟", name: "Lá chắn Đồng", description: "Xử lý an toàn 5 tình huống thuộc bất kỳ nhóm rủi ro nào.", tier: "Đồng", tone: "bronze", current: safeIds.size, target: 5 }),
+    createBadge({ icon: "⬢", name: "Lá chắn Bạc", description: "Xử lý an toàn 10 tình huống và duy trì phản xạ xác minh.", tier: "Bạc", tone: "silver", current: safeIds.size, target: 10 }),
+    createBadge({ icon: "◆", name: "Lá chắn Vàng", description: "Xử lý an toàn 20 tình huống trong thư viện Khiên Số.", tier: "Vàng", tone: "gold", current: safeIds.size, target: 20 }),
+    createBadge({ icon: "▲", name: "Tâm lý thép", description: "Đạt chuỗi 5 tình huống xử lý an toàn liên tiếp.", tier: "Kỹ năng", tone: "expert", current: streak, target: 5 }),
+    createBadge({ icon: "✦", name: "Khắc tinh mạo danh", description: "Vượt toàn bộ tình huống giả danh công an, điện lực và nhà trường.", tier: "Chuyên môn", tone: "expert", current: safeIn([1, 12, 13]), target: 3 }),
+    createBadge({ icon: "◉", name: "Đôi mắt phishing", description: "Nhận diện đủ các bẫy liên kết, OTP, QR đăng nhập và brandname giả.", tier: "Chuyên môn", tone: "expert", current: safeIn([2, 8, 14, 16, 20, 24, 27, 29]), target: 8 }),
+    createBadge({ icon: "♬", name: "Khắc tinh Deepfake", description: "Xử lý an toàn các cuộc gọi giả khuôn mặt và giọng nói người thân.", tier: "Chuyên môn", tone: "expert", current: safeIn([3, 22, 23]), target: 3 }),
+    createBadge({ icon: "⌗", name: "Vệ sĩ giao dịch", description: "Chặn các bẫy QR, chuyển nhầm, biên lai giả và giao hàng tam giác.", tier: "Chuyên môn", tone: "expert", current: safeIn([5, 9, 15, 26]), target: 4 }),
+    createBadge({ icon: "◒", name: "Miễn nhiễm đầu tư", description: "Vượt các bẫy sàn giả, tình cảm–đầu tư, airdrop và hội thảo trực tuyến.", tier: "Chuyên môn", tone: "expert", current: safeIn([7, 11, 25, 30]), target: 4 }),
+    createBadge({ icon: "⚐", name: "Người tìm việc tỉnh táo", description: "Nhận diện đủ bẫy cộng tác viên, tuyển mẫu, vay phí trước và việc ở nước ngoài.", tier: "Chuyên môn", tone: "expert", current: safeIn([4, 17, 18, 28]), target: 4 }),
+    createBadge({ icon: "◎", name: "Người giữ danh tính", description: "Bảo vệ OTP, sinh trắc học, tài khoản và quyền truy cập thiết bị.", tier: "Chuyên môn", tone: "expert", current: safeIn([6, 8, 14, 16, 19, 20, 27, 29]), target: 8 }),
+    createBadge({ icon: "⬣", name: "Chuyên gia Khiên Số", description: "Xử lý an toàn toàn bộ thư viện tình huống hiện có.", tier: "Huyền thoại", tone: "legendary", current: safeIds.size, target: scenarios.length }),
   ];
+  const unlockedBadgeCount = defenseBadges.filter((badge) => badge.unlocked).length;
+  const badgePreview = defenseBadges.some((badge) => !badge.unlocked)
+    ? defenseBadges.filter((badge) => !badge.unlocked).sort((a, b) => b.progress - a.progress || a.target - b.target).slice(0, 4)
+    : defenseBadges.slice(-4);
 
   function applyProgress(progress: StoredProgress, displayName = progress.playerName) {
     setBalance(progress.balance);
@@ -805,11 +834,11 @@ export default function Home() {
             <div className="progress-card">
               <div className="section-title"><span><small>TIẾN TRÌNH</small><strong>{Math.round((safeIds.size / scenarios.length) * 100)}%</strong></span></div>
               <div className="ring" style={{ "--progress": `${(safeIds.size / scenarios.length) * 360}deg` } as React.CSSProperties}><span>{safeIds.size}<small>an toàn</small></span></div>
-              <div className="mini-stats"><span><strong>{streak}</strong> chuỗi tốt nhất</span><span><strong>{unlockedBadges.filter((item) => item.unlocked).length}</strong> huy hiệu</span></div>
+              <div className="mini-stats"><span><strong>{streak}</strong> chuỗi tốt nhất</span><span><strong>{unlockedBadgeCount}</strong> / {defenseBadges.length} huy hiệu</span></div>
             </div>
             <div className="badge-card">
               <div className="section-title"><h3>Huy hiệu gần nhất</h3><button onClick={() => setView("stats")}>Xem tất cả</button></div>
-              <div className="badge-preview">{unlockedBadges.slice(0, 4).map((badge) => <span className={badge.unlocked ? "unlocked" : ""} key={badge.name} title={badge.name}>{badge.icon}</span>)}</div>
+              <div className="badge-preview">{badgePreview.map((badge) => <span className={badge.unlocked ? "unlocked" : ""} key={badge.name} title={`${badge.name} · ${badge.current}/${badge.target}`} style={{ "--badge-progress": `${badge.progress * 3.6}deg` } as React.CSSProperties}><i>{badge.icon}</i></span>)}</div>
             </div>
             <button className="emergency-card" onClick={() => setGuide(true)}><span>!</span><div><strong>Đã lỡ chuyển tiền?</strong><small>Mở hướng dẫn xử lý khẩn cấp</small></div><b>→</b></button>
           </aside>
@@ -827,7 +856,10 @@ export default function Home() {
         <section className="content-page stats-page">
           <div className="page-hero"><span className="eyebrow">HỒ SƠ PHÒNG VỆ</span><h1>{playerName}</h1><p>{sessionAccount ? "Tiến bộ của bạn được đồng bộ an toàn giữa các thiết bị." : "Đăng nhập để đồng bộ tiến bộ giữa các thiết bị."}</p></div>
           <div className="stats-overview"><article><small>Kịch bản đã thử</small><strong>{results.length}</strong><span>/ {scenarios.length}</span></article><article><small>Xử lý an toàn</small><strong>{safeIds.size}</strong><span>{results.length ? Math.round((safeIds.size / results.length) * 100) : 0}% chính xác</span></article><article><small>Điểm phòng vệ</small><strong>{score}</strong><span>cấp {Math.floor(score / 500) + 1}</span></article><article><small>Tài sản còn lại</small><strong className="money-stat">{money.format(balance)}đ</strong><span>bảo toàn {Math.round((balance / 300_000_000) * 100)}%</span></article></div>
-          <div className="achievement-section"><div><span className="eyebrow">BỘ SƯU TẬP</span><h2>Huy hiệu phòng vệ</h2></div><div className="achievement-grid">{unlockedBadges.map((badge) => <article className={badge.unlocked ? "unlocked" : ""} key={badge.name}><span>{badge.icon}</span><div><strong>{badge.name}</strong><small>{badge.unlocked ? "Đã mở khoá" : "Chưa mở khoá"}</small></div></article>)}</div></div>
+          <div className="achievement-section">
+            <div className="achievement-heading"><div><span className="eyebrow">BỘ SƯU TẬP CHUYÊN MÔN</span><h2>Huy hiệu phòng vệ</h2><p>Mỗi huy hiệu phản ánh một kỹ năng hoặc cột mốc có thể kiểm chứng từ kết quả của bạn.</p></div><div className="achievement-summary"><strong>{unlockedBadgeCount}/{defenseBadges.length}</strong><span>đã mở khoá</span></div></div>
+            <div className="achievement-grid">{defenseBadges.map((badge) => <article className={`${badge.unlocked ? "unlocked" : ""} tone-${badge.tone}`} key={badge.name} aria-label={`${badge.name}: ${badge.unlocked ? "đã mở khoá" : `${badge.current} trên ${badge.target}`}`}><span className="achievement-icon">{badge.icon}</span><div className="achievement-copy"><div className="achievement-name"><strong>{badge.name}</strong><em>{badge.tier}</em></div><p>{badge.description}</p><div className="achievement-progress"><i style={{ width: `${badge.progress}%` }} /><span>{badge.unlocked ? "Đã mở khoá" : `${badge.current}/${badge.target}`}</span></div></div></article>)}</div>
+          </div>
           <button className="reset-button" onClick={resetProgress}>Đặt lại toàn bộ tiến trình</button>
         </section>
       )}

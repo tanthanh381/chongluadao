@@ -69,6 +69,10 @@ test("ships product metadata and social artwork", async () => {
   assert.match(page, /test_attempts/);
   assert.match(page, /user_progress/);
   assert.match(page, /get_ciso_dashboard/);
+  assert.match(page, /DefenseBadge/);
+  assert.match(page, /Chuyên gia Khiên Số/);
+  assert.match(page, /achievement-progress/);
+  assert.match(page, /defenseBadges\.length/);
   assert.match(page, /Đăng xuất/);
   assert.match(page, /Tài sản vừa bị tổn thất/);
   assert.match(page, /Đã hiểu hậu quả/);
@@ -94,6 +98,9 @@ test("ships product metadata and social artwork", async () => {
   assert.match(admin, /Cấp quyền/);
   assert.match(admin, /Người dùng cần đăng ký và xác nhận email/);
   assert.match(data, /normalizeSiteContent/);
+  const scenarioIds = [...data.matchAll(/\bid:\s*(\d+),/g)].map((match) => Number(match[1]));
+  assert.equal(new Set(scenarioIds).size, 30);
+  assert.equal(Math.max(...scenarioIds), 30);
   assert.match(schema, /alter table public\.site_content enable row level security/);
   assert.match(schema, /site_content_public_read/);
   assert.match(schema, /private\.user_is_app_admin/);
