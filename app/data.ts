@@ -22,7 +22,7 @@ export type Scenario = {
   choices: Choice[];
 };
 
-export const scenarios: Scenario[] = [
+const scenarioDefinitions: Scenario[] = [
   {
     id: 1,
     title: "Cuộc gọi ‘điều tra khẩn cấp’",
@@ -480,6 +480,20 @@ export const scenarios: Scenario[] = [
     ],
   },
 ];
+
+// Giữ vị trí đáp án đúng cân bằng theo từng nhóm 12 tình huống và tránh
+// để người chơi đoán đáp án dựa trên một vị trí cố định.
+const ANSWER_POSITION_PATTERN = [1, 2, 1, 0, 2, 0, 2, 1, 0, 1, 0, 2] as const;
+
+export const scenarios: Scenario[] = scenarioDefinitions.map((scenario, index) => {
+  const correctChoice = scenario.choices.find((choice) => choice.correct);
+  const incorrectChoices = scenario.choices.filter((choice) => !choice.correct);
+  if (!correctChoice || incorrectChoices.length !== 2) return scenario;
+
+  const choices = [...incorrectChoices];
+  choices.splice(ANSWER_POSITION_PATTERN[index % ANSWER_POSITION_PATTERN.length], 0, correctChoice);
+  return { ...scenario, choices };
+});
 
 export type KnowledgeCard = {
   icon: string;

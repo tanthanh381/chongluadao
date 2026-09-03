@@ -98,6 +98,7 @@ test("ships product metadata and social artwork", async () => {
   assert.match(admin, /Cấp quyền/);
   assert.match(admin, /Người dùng cần đăng ký và xác nhận email/);
   assert.match(data, /normalizeSiteContent/);
+  assert.match(data, /ANSWER_POSITION_PATTERN/);
   const scenarioIds = [...data.matchAll(/\bid:\s*(\d+),/g)].map((match) => Number(match[1]));
   assert.equal(new Set(scenarioIds).size, 36);
   assert.equal(Math.max(...scenarioIds), 36);
