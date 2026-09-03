@@ -100,8 +100,8 @@ test("ships product metadata and social artwork", async () => {
   assert.match(data, /normalizeSiteContent/);
   assert.match(data, /ANSWER_POSITION_PATTERN/);
   const scenarioIds = [...data.matchAll(/\bid:\s*(\d+),/g)].map((match) => Number(match[1]));
-  assert.equal(new Set(scenarioIds).size, 36);
-  assert.equal(Math.max(...scenarioIds), 36);
+  assert.equal(new Set(scenarioIds).size, 42);
+  assert.equal(Math.max(...scenarioIds), 42);
   assert.match(page, /Thợ săn xu hướng mới/);
   assert.match(schema, /alter table public\.site_content enable row level security/);
   assert.match(schema, /site_content_public_read/);

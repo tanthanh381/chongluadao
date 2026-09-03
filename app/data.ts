@@ -479,6 +479,72 @@ const scenarioDefinitions: Scenario[] = [
       { text: "Chuyển tệp sang máy cá nhân để mở", correct: false, moneyDelta: 0, awarenessDelta: -19, feedback: "Chuyển thiết bị không làm tệp an toàn và còn mở rộng phạm vi lây nhiễm." },
     ],
   },
+  {
+    id: 37, title: "Đăng ký giải chạy trẻ em qua fanpage giả", category: "Sự kiện", difficulty: "Khó", channel: "Mạng xã hội", icon: "⚑",
+    story: "Một fanpage quảng cáo giải chạy dành cho trẻ em với hình ảnh chuyên nghiệp và nhiều phụ huynh bình luận. Sau khi điền thông tin của con, bạn được thêm vào nhóm ‘ban tổ chức’ và yêu cầu chuyển tiền làm nhiệm vụ để kích hoạt hồ sơ, hứa hoàn lại kèm ưu đãi.",
+    redFlags: ["Thu thập thông tin trẻ em qua biểu mẫu lạ", "Chuyển tiền để kích hoạt hồ sơ", "Hứa hoàn tiền sau nhiệm vụ"],
+    tip: "Xác minh sự kiện qua website, địa điểm tổ chức và đơn vị chủ quản. Không chuyển tiền làm nhiệm vụ hoặc cung cấp giấy tờ của trẻ cho tài khoản chưa xác thực.", evidence: "Fanpage và nhóm đăng ký sự kiện giả",
+    choices: [
+      { text: "Dừng đăng ký, tự xác minh với đơn vị và địa điểm tổ chức", correct: true, moneyDelta: 0, awarenessDelta: 9, feedback: "Đúng. Một sự kiện thật phải có đơn vị chịu trách nhiệm, điều lệ và kênh thanh toán minh bạch." },
+      { text: "Làm nhiệm vụ nhỏ trước để kiểm tra khả năng hoàn tiền", correct: false, moneyDelta: -5000000, awarenessDelta: -20, feedback: "Khoản hoàn nhỏ có thể là mồi để bạn tin tưởng và chuyển số tiền lớn hơn." },
+      { text: "Gửi ảnh giấy khai sinh nhưng che số định danh", correct: false, moneyDelta: 0, awarenessDelta: -15, feedback: "Giấy tờ vẫn chứa nhiều dữ liệu nhạy cảm về trẻ và gia đình. Không gửi khi đơn vị chưa được xác minh." },
+    ],
+  },
+  {
+    id: 38, title: "Người bán livestream gửi link xác nhận đơn", category: "Chiếm tài khoản", difficulty: "Rất khó", channel: "Messenger", icon: "▧",
+    story: "Sau khi bạn để số điện thoại trong bình luận livestream, một tài khoản giống người bán nhắn rằng đơn bị thiếu thông tin. Link ‘xác nhận giao hàng’ yêu cầu đăng nhập mạng xã hội; ít phút sau, tài khoản của bạn nhắn vay tiền người thân và đưa tài khoản nhận có tên gần giống bạn.",
+    redFlags: ["Chủ động liên hệ từ dữ liệu bình luận", "Link yêu cầu đăng nhập lại mạng xã hội", "Tài khoản nhận tiền có tên gây nhầm lẫn"],
+    tip: "Không công khai số điện thoại trong livestream và không đăng nhập từ link người bán gửi. Tự mở ứng dụng, xác minh đơn hàng và bật xác thực nhiều lớp.", evidence: "Chuỗi chiếm tài khoản từ livestream",
+    choices: [
+      { text: "Không mở link, kiểm tra đơn trong ứng dụng và báo tài khoản giả", correct: true, moneyDelta: 0, awarenessDelta: 10, feedback: "Chính xác. Bạn chặn chuỗi tấn công trước khi kẻ gian lấy tài khoản và mạo danh bạn." },
+      { text: "Đăng nhập vì tài khoản nhắn đúng sản phẩm đã đặt", correct: false, moneyDelta: -25000000, awarenessDelta: -29, feedback: "Thông tin sản phẩm và số điện thoại có thể được lấy ngay từ phiên livestream để tạo kịch bản rất thuyết phục." },
+      { text: "Gửi mã OTP cho người bán để họ sửa đơn", correct: false, moneyDelta: -35000000, awarenessDelta: -32, feedback: "OTP có thể hoàn tất việc chiếm tài khoản. Người bán không cần OTP đăng nhập của khách hàng." },
+    ],
+  },
+  {
+    id: 39, title: "Phòng trọ đẹp giá rẻ yêu cầu giữ chỗ", category: "Nhà ở", difficulty: "Trung bình", channel: "Nhóm cộng đồng", icon: "⌂",
+    story: "Bạn thấy bài đăng cho thuê phòng gần nơi làm việc, giá thấp hơn khu vực và ảnh rất đẹp. Người đăng nói đang ở xa, có nhiều người hỏi nên yêu cầu cọc hai tháng để giữ phòng trước khi bạn đến xem.",
+    redFlags: ["Không cho xem phòng trực tiếp", "Giá thấp bất thường", "Thúc ép đặt cọc vì có nhiều người hỏi"],
+    tip: "Đến xem phòng, đối chiếu người cho thuê với chủ sở hữu hoặc người được ủy quyền và đọc hợp đồng trước khi đặt cọc.", evidence: "Bài đăng phòng trọ không có thật",
+    choices: [
+      { text: "Không cọc trước, chỉ giao dịch sau khi xem và xác minh quyền cho thuê", correct: true, moneyDelta: 0, awarenessDelta: 7, feedback: "Đúng. Ảnh phòng và giấy tờ gửi qua mạng đều có thể bị lấy từ nơi khác." },
+      { text: "Cọc một tháng vì có ảnh căn cước của chủ nhà", correct: false, moneyDelta: -6000000, awarenessDelta: -21, feedback: "Ảnh căn cước có thể bị đánh cắp và không chứng minh người gửi có quyền cho thuê căn phòng." },
+      { text: "Chuyển phí xem phòng nhỏ để được ưu tiên", correct: false, moneyDelta: -1000000, awarenessDelta: -12, feedback: "Phí nhỏ vẫn là một biến thể của bẫy đặt cọc và có thể kéo theo nhiều khoản khác." },
+    ],
+  },
+  {
+    id: 40, title: "Môi giới hứa ‘chạy việc’ vào cơ quan", category: "Tuyển dụng", difficulty: "Khó", channel: "Người quen", icon: "▥",
+    story: "Một người được giới thiệu qua bạn bè khẳng định có quan hệ và có thể giúp bạn vào vị trí tốt mà không cần qua đủ quy trình tuyển dụng. Họ yêu cầu chuyển trước ‘phí quan hệ’, gửi ảnh CCCD và hứa hoàn tiền nếu không thành công.",
+    redFlags: ["Hứa bỏ qua quy trình tuyển dụng", "Thu phí quan hệ không có chứng từ", "Yêu cầu giấy tờ định danh qua kênh cá nhân"],
+    tip: "Chỉ ứng tuyển qua cơ quan, doanh nghiệp hoặc trung tâm việc làm hợp pháp. Không trả tiền cho lời hứa tác động trái quy trình.", evidence: "Tin nhắn và biên nhận phí chạy việc",
+    choices: [
+      { text: "Từ chối và liên hệ trực tiếp đơn vị tuyển dụng để kiểm tra", correct: true, moneyDelta: 0, awarenessDelta: 8, feedback: "Đúng. Quy trình tuyển dụng chính thức phải có thông báo, tiêu chí và đầu mối có thể xác minh." },
+      { text: "Trả một nửa vì người này do bạn bè giới thiệu", correct: false, moneyDelta: -40000000, awarenessDelta: -25, feedback: "Quan hệ giới thiệu không chứng minh khả năng tuyển dụng và lời hứa hoàn tiền có thể không được thực hiện." },
+      { text: "Chỉ gửi CCCD để họ kiểm tra chỉ tiêu trước", correct: false, moneyDelta: 0, awarenessDelta: -18, feedback: "Dữ liệu định danh có thể bị lợi dụng dù bạn chưa chuyển tiền." },
+    ],
+  },
+  {
+    id: 41, title: "‘Bắt cóc trực tuyến’ cô lập sinh viên", category: "Thao túng tâm lý", difficulty: "Rất khó", channel: "Cuộc gọi video", icon: "⊞",
+    story: "Người tự xưng là công an nói sinh viên liên quan vụ án và phải giữ bí mật để chứng minh vô tội. Họ yêu cầu thuê phòng ở một mình, bật video liên tục, cắt liên lạc với gia đình; sau đó gia đình nhận tin đòi tiền vì tưởng con bị bắt cóc.",
+    redFlags: ["Yêu cầu tự cô lập và giữ bí mật", "Giám sát liên tục qua video", "Ngăn liên hệ gia đình và cơ quan chức năng"],
+    tip: "Cơ quan công an không điều tra bằng cách buộc người dân tự cô lập qua video. Ngắt liên lạc, báo gia đình, nhà trường và công an địa phương ngay.", evidence: "Kịch bản cô lập nạn nhân trực tuyến",
+    choices: [
+      { text: "Ngắt cuộc gọi và báo ngay gia đình, nhà trường, công an địa phương", correct: true, moneyDelta: 0, awarenessDelta: 10, feedback: "Chính xác. Phá vỡ sự cô lập làm kẻ gian mất công cụ thao túng cả bạn và gia đình." },
+      { text: "Làm theo vì họ đã đọc đúng thông tin cá nhân", correct: false, moneyDelta: -70000000, awarenessDelta: -35, feedback: "Dữ liệu cá nhân có thể bị mua bán hoặc rò rỉ; biết thông tin không chứng minh người gọi là công an." },
+      { text: "Giữ bí mật nhưng nhắn bạn thân biết vị trí", correct: false, moneyDelta: 0, awarenessDelta: -20, feedback: "Bạn vẫn đang nằm trong kịch bản kiểm soát. Cần ngắt cuộc gọi và liên hệ ngay đầu mối chính thức." },
+    ],
+  },
+  {
+    id: 42, title: "Góp vốn cho vay đáo hạn ngân hàng", category: "Đầu tư", difficulty: "Rất khó", channel: "Người quen", icon: "⇆",
+    story: "Một người quen rủ bạn góp vốn cho khách vay đáo hạn ngân hàng trong vài ngày, cam kết lợi nhuận cao và nói tiền luôn được bảo đảm bằng hồ sơ vay. Những lần đầu họ trả đúng hẹn, sau đó đề nghị bạn dồn khoản lớn để nhận mức lãi tốt hơn.",
+    redFlags: ["Lợi nhuận cao trong thời gian rất ngắn", "Dùng lần trả đúng hạn để tạo lòng tin", "Hoạt động tài chính không rõ tư cách pháp lý"],
+    tip: "Không giao tiền cho cá nhân thực hiện hoạt động tín dụng hoặc đáo hạn không rõ pháp lý. Kiểm tra tổ chức, hợp đồng, tài sản bảo đảm và rủi ro bằng nguồn độc lập.", evidence: "Chuỗi góp vốn đáo hạn và trả lãi mồi",
+    choices: [
+      { text: "Không góp thêm và chỉ giao dịch qua tổ chức có chức năng hợp pháp", correct: true, moneyDelta: 0, awarenessDelta: 10, feedback: "Đúng. Việc từng trả đúng hạn không chứng minh mô hình có thật hoặc tiền của bạn được bảo đảm." },
+      { text: "Góp khoản lớn vì các lần trước đều nhận đủ lãi", correct: false, moneyDelta: -90000000, awarenessDelta: -32, feedback: "Những lần trả đầu có thể dùng chính tiền của người tham gia sau để tạo uy tín trước khi chiếm khoản lớn." },
+      { text: "Yêu cầu ảnh hồ sơ vay rồi mới chuyển", correct: false, moneyDelta: -45000000, awarenessDelta: -22, feedback: "Hồ sơ có thể bị làm giả và bạn không có khả năng xác minh giao dịch ngân hàng chỉ qua ảnh." },
+    ],
+  },
 ];
 
 // Giữ vị trí đáp án đúng cân bằng theo từng nhóm 12 tình huống và tránh
