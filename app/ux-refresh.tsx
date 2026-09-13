@@ -1,0 +1,120 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
+type PrimaryView = "Thử thách" | "Cẩm nang" | "Tin tức" | "Thành tích";
+
+const PRIMARY_VIEWS: PrimaryView[] = ["Thử thách", "Cẩm nang", "Tin tức", "Thành tích"];
+const BANNER_KEY = "canhgiacso:simulation-banner-dismissed";
+
+function navButton(label: string) {
+  return Array.from(document.querySelectorAll<HTMLButtonElement>(".topbar nav button"))
+    .find((button) => button.textContent?.trim() === label) ?? null;
+}
+
+function activate(label: string) {
+  navButton(label)?.click();
+}
+
+export function UxRefresh() {
+  const [active, setActive] = useState<PrimaryView | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(false);
+  const [scenariosOpen, setScenariosOpen] = useState(false);
+  const [utilityOpen, setUtilityOpen] = useState(false);
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    try { setBannerDismissed(localStorage.getItem(BANNER_KEY) === "1"); } catch { /* storage can be unavailable */ }
+    const root = document.getElementById("root") ?? document.body;
+    let pending = false;
+    const sync = () => {
+      pending = false;
+      const label = document.querySelector<HTMLButtonElement>(".topbar nav button[aria-current='page']")?.textContent?.trim();
+      setActive(PRIMARY_VIEWS.includes(label as PrimaryView) ? label as PrimaryView : null);
+      setVersion((value) => value + 1);
+    };
+    const schedule = () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(sync);
+    };
+    const observer = new MutationObserver(schedule);
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
+    sync();
+    return () => observer.disconnect();
+  }, []);
+
+  const app = document.querySelector<HTMLElement>(".app");
+  const topActions = document.querySelector<HTMLElement>(".top-actions");
+  const banner = document.querySelector<HTMLElement>(".security-awareness-banner");
+  const scenarioPanel = document.querySelector<HTMLElement>(".scenario-panel");
+  const statusGrid = document.querySelector<HTMLElement>(".status-grid");
+  const stage = document.querySelector<HTMLElement>(".stage");
+  const feedback = document.querySelector<HTMLElement>(".feedback");
+  const knowledgeHero = document.querySelector<HTMLElement>(".knowledge-hero");
+  const signedIn = Boolean(document.querySelector(".profile-button"));
+  const hasAdmin = Boolean(navButton("Quản trị"));
+  const completed = document.querySelectorAll(".scenario-number.done, .scenario-number.attempted").length;
+  const totalText = document.querySelector(".scenario-count")?.textContent ?? "";
+  const total = Number(totalText.split("/")[1]) || document.querySelectorAll(".scenario-item").length;
+
+  useEffect(() => {
+    app?.classList.toggle("ux-insight-open", insightOpen);
+    app?.classList.toggle("ux-scenarios-open", scenariosOpen);
+    app?.classList.toggle("ux-banner-dismissed", bannerDismissed);
+  }, [app, bannerDismissed, insightOpen, scenariosOpen, version]);
+
+  useEffect(() => {
+    setInsightOpen(false);
+    setScenariosOpen(false);
+    setUtilityOpen(false);
+  }, [active]);
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    try { localStorage.setItem(BANNER_KEY, "1"); } catch { /* storage can be unavailable */ }
+  };
+  const restoreBanner = () => {
+    setBannerDismissed(false);
+    try { localStorage.removeItem(BANNER_KEY); } catch { /* storage can be unavailable */ }
+  };
+  const openRegistration = () => {
+    const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".auth-actions button"))
+      .find((item) => item.textContent?.trim() === "Đăng ký");
+    button?.click();
+  };
+  const selectDifficulty = (value: string) => {
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".difficulty-filter button"))
+      .find((item) => item.textContent?.replace("🔒", "").trim() === value)?.click();
+  };
+  const flags = Array.from(document.querySelectorAll<HTMLElement>(".red-flags div span"))
+    .map((item) => (item.textContent ?? "").replace(/^△\s*/, "").trim()).filter(Boolean).slice(0, 3);
+  const tip = document.querySelector<HTMLElement>(".coach-card > p")?.textContent?.trim();
+  const feedbackDanger = feedback?.classList.contains("danger") ?? false;
+
+  return <>
+    {topActions && createPortal(<>
+      {bannerDismissed && <button className="ux-simulation-chip" onClick={restoreBanner}><span aria-hidden="true">🛡</span> Mô phỏng</button>}
+      {signedIn && <div className="ux-utility-menu"><button className="ux-utility-trigger" aria-expanded={utilityOpen} onClick={() => setUtilityOpen((value) => !value)}>•••</button>{utilityOpen && <div className="ux-utility-popover" role="menu"><button role="menuitem" onClick={() => activate("Dashboard")}>Dashboard</button>{hasAdmin && <button role="menuitem" onClick={() => activate("Quản trị")}>Quản trị</button>}</div>}</div>}
+    </>, topActions)}
+
+    {banner && !bannerDismissed && createPortal(<button className="ux-banner-close" aria-label="Ẩn lưu ý môi trường mô phỏng" onClick={dismissBanner}>×</button>, banner)}
+
+    {scenarioPanel && createPortal(<div className="ux-scenario-tools"><label><span>Lọc độ khó</span><select defaultValue="Tất cả" onChange={(event) => selectDifficulty(event.target.value)}><option>Tất cả</option><option>Dễ</option><option>Trung bình</option><option>Khó</option><option>Rất khó</option></select></label><button className="ux-random" onClick={() => document.querySelector<HTMLButtonElement>(".random-button")?.click()}><span aria-hidden="true">🎲</span><span>Ngẫu nhiên</span></button></div>, scenarioPanel)}
+
+    {statusGrid && createPortal(<div className="ux-status-progress"><span aria-hidden="true">✓</span><span><small>Tiến trình</small><strong>{completed}/{total || "—"}</strong></span></div>, statusGrid)}
+
+    {stage && active === "Thử thách" && createPortal(<><div className="ux-stage-actions"><button className="ux-scenario-trigger" onClick={() => setScenariosOpen(true)}><span aria-hidden="true">☰</span> Danh sách tình huống</button><button className="ux-insight-trigger" onClick={() => setInsightOpen(true)}><span aria-hidden="true">💡</span> Mẹo & tiến trình</button></div>{!signedIn && completed >= 3 && <aside className="ux-guest-conversion" role="note"><div><span aria-hidden="true">🎯</span><span><strong>Bạn đã có tiến trình đáng để lưu</strong><small>Tạo tài khoản để giữ kết quả trên nhiều thiết bị và nhận chứng nhận khi hoàn thành.</small></span></div><div><button className="ux-primary" onClick={openRegistration}>Lưu tiến trình</button><button className="ux-text-button">Tiếp tục với tư cách khách</button></div></aside>}</>, stage)}
+
+    {feedback && createPortal(<div className="ux-learning-moment"><div className="ux-learning-heading"><span aria-hidden="true">{feedbackDanger ? "⚠" : "✓"}</span><strong>{feedbackDanger ? "Dấu hiệu bạn cần ghi nhớ" : "Vì sao cách xử lý này an toàn"}</strong></div>{flags.length > 0 && <ul>{flags.map((flag) => <li key={flag}>{flag}</li>)}</ul>}{tip && <div className="ux-principle"><b>Nguyên tắc áp dụng ngoài đời</b><span>{tip}</span></div>}</div>, feedback)}
+
+    {knowledgeHero && createPortal(<button className="ux-practice-cta" onClick={() => activate("Thực hành tương tác")}><span aria-hidden="true">▶</span> Luyện nhận diện phishing</button>, knowledgeHero)}
+
+    <nav className="ux-bottom-nav" aria-label="Điều hướng di động">{PRIMARY_VIEWS.map((item) => <button key={item} className={active === item ? "active" : ""} aria-current={active === item ? "page" : undefined} onClick={() => activate(item)}><span aria-hidden="true">{{ "Thử thách": "◇", "Cẩm nang": "▤", "Tin tức": "◫", "Thành tích": "★" }[item]}</span><small>{item}</small></button>)}</nav>
+
+    {scenariosOpen && <><button className="ux-drawer-backdrop" aria-label="Đóng danh sách tình huống" onClick={() => setScenariosOpen(false)} /><button className="ux-drawer-close ux-scenario-close" aria-label="Đóng danh sách tình huống" onClick={() => setScenariosOpen(false)}>×</button></>}
+    {insightOpen && <><button className="ux-drawer-backdrop ux-insight-backdrop" aria-label="Đóng bảng mẹo và tiến trình" onClick={() => setInsightOpen(false)} /><button className="ux-drawer-close ux-insight-close" aria-label="Đóng bảng mẹo và tiến trình" onClick={() => setInsightOpen(false)}>×</button></>}
+  </>;
+}
