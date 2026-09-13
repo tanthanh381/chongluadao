@@ -9,6 +9,7 @@ const PRIMARY_VIEWS: PrimaryView[] = ["Thử thách", "Cẩm nang", "Tin tức",
 const BANNER_KEY = "canhgiacso:simulation-banner-dismissed";
 
 function navButton(label: string) {
+  if (typeof document === "undefined") return null;
   return Array.from(document.querySelectorAll<HTMLButtonElement>(".topbar nav button"))
     .find((button) => button.textContent?.trim() === label) ?? null;
 }
@@ -63,19 +64,20 @@ export function UxRefresh() {
     };
   }, []);
 
-  const app = document.querySelector<HTMLElement>(".app");
-  const topActions = document.querySelector<HTMLElement>(".top-actions");
-  const banner = document.querySelector<HTMLElement>(".security-awareness-banner");
-  const scenarioPanel = document.querySelector<HTMLElement>(".scenario-panel");
-  const statusGrid = document.querySelector<HTMLElement>(".status-grid");
-  const stage = document.querySelector<HTMLElement>(".stage");
-  const feedback = document.querySelector<HTMLElement>(".feedback");
-  const knowledgeHero = document.querySelector<HTMLElement>(".knowledge-hero");
-  const signedIn = Boolean(document.querySelector(".profile-button"));
-  const hasAdmin = Boolean(navButton("Quản trị"));
-  const completed = document.querySelectorAll(".scenario-number.done, .scenario-number.attempted").length;
-  const totalText = document.querySelector(".scenario-count")?.textContent ?? "";
-  const total = Number(totalText.split("/")[1]) || document.querySelectorAll(".scenario-item").length;
+  const domReady = typeof document !== "undefined";
+  const app = domReady ? document.querySelector<HTMLElement>(".app") : null;
+  const topActions = domReady ? document.querySelector<HTMLElement>(".top-actions") : null;
+  const banner = domReady ? document.querySelector<HTMLElement>(".security-awareness-banner") : null;
+  const scenarioPanel = domReady ? document.querySelector<HTMLElement>(".scenario-panel") : null;
+  const statusGrid = domReady ? document.querySelector<HTMLElement>(".status-grid") : null;
+  const stage = domReady ? document.querySelector<HTMLElement>(".stage") : null;
+  const feedback = domReady ? document.querySelector<HTMLElement>(".feedback") : null;
+  const knowledgeHero = domReady ? document.querySelector<HTMLElement>(".knowledge-hero") : null;
+  const signedIn = domReady && Boolean(document.querySelector(".profile-button"));
+  const hasAdmin = domReady && Boolean(navButton("Quản trị"));
+  const completed = domReady ? document.querySelectorAll(".scenario-number.done, .scenario-number.attempted").length : 0;
+  const totalText = domReady ? document.querySelector(".scenario-count")?.textContent ?? "" : "";
+  const total = domReady ? Number(totalText.split("/")[1]) || document.querySelectorAll(".scenario-item").length : 0;
 
   useEffect(() => {
     app?.classList.toggle("ux-insight-open", insightOpen);
@@ -98,17 +100,21 @@ export function UxRefresh() {
     try { localStorage.removeItem(BANNER_KEY); } catch { /* storage can be unavailable */ }
   };
   const openRegistration = () => {
+    if (!domReady) return;
     const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".auth-actions button"))
       .find((item) => item.textContent?.trim() === "Đăng ký");
     button?.click();
   };
   const selectDifficulty = (value: string) => {
+    if (!domReady) return;
     Array.from(document.querySelectorAll<HTMLButtonElement>(".difficulty-filter button"))
       .find((item) => item.textContent?.replace("🔒", "").trim() === value)?.click();
   };
-  const flags = Array.from(document.querySelectorAll<HTMLElement>(".red-flags div span"))
-    .map((item) => (item.textContent ?? "").replace(/^△\s*/, "").trim()).filter(Boolean).slice(0, 3);
-  const tip = document.querySelector<HTMLElement>(".coach-card > p")?.textContent?.trim();
+  const flags = domReady
+    ? Array.from(document.querySelectorAll<HTMLElement>(".red-flags div span"))
+      .map((item) => (item.textContent ?? "").replace(/^△\s*/, "").trim()).filter(Boolean).slice(0, 3)
+    : [];
+  const tip = domReady ? document.querySelector<HTMLElement>(".coach-card > p")?.textContent?.trim() : undefined;
   const feedbackDanger = feedback?.classList.contains("danger") ?? false;
 
   return <>
@@ -119,7 +125,7 @@ export function UxRefresh() {
 
     {banner && !bannerDismissed && createPortal(<button className="ux-banner-close" aria-label="Ẩn lưu ý môi trường mô phỏng" onClick={dismissBanner}>×</button>, banner)}
 
-    {scenarioPanel && createPortal(<div className="ux-scenario-tools"><label><span>Lọc độ khó</span><select defaultValue="Tất cả" aria-label="Lọc độ khó" onChange={(event) => selectDifficulty(event.target.value)}><option>Tất cả</option><option>Dễ</option><option>Trung bình</option><option>Khó</option><option>Rất khó</option></select></label><button className="ux-random" onClick={() => document.querySelector<HTMLButtonElement>(".random-button")?.click()}><span aria-hidden="true">🎲</span><span>Ngẫu nhiên</span></button></div>, scenarioPanel)}
+    {scenarioPanel && createPortal(<div className="ux-scenario-tools"><label><span>Lọc độ khó</span><select defaultValue="Tất cả" aria-label="Lọc độ khó" onChange={(event) => selectDifficulty(event.target.value)}><option>Tất cả</option><option>Dễ</option><option>Trung bình</option><option>Khó</option><option>Rất khó</option></select></label><button className="ux-random" onClick={() => domReady && document.querySelector<HTMLButtonElement>(".random-button")?.click()}><span aria-hidden="true">🎲</span><span>Ngẫu nhiên</span></button></div>, scenarioPanel)}
 
     {statusGrid && createPortal(<div className="ux-status-progress"><span aria-hidden="true">✓</span><span><small>Tiến trình</small><strong>{completed}/{total || "—"}</strong></span></div>, statusGrid)}
 
