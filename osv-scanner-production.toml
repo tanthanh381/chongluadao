@@ -1,0 +1,7 @@
+# Production release gate: dev-only packages are not shipped in the static site.
+# A separate full-graph OSV scan remains enabled in CI for build-tool visibility.
+
+[[PackageOverrides]]
+group = "dev"
+vulnerability.ignore = true
+reason = "Production SCA gate excludes dev-only build tooling; the complete dependency graph is scanned separately as a non-blocking visibility control."
