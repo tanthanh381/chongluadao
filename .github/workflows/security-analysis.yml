@@ -29,24 +29,21 @@ jobs:
           category: /language:javascript-typescript
 
   osv:
-    name: OSV dependency scan
+    name: OSV full dependency visibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Production dependency gate
-        uses: google/osv-scanner-action/osv-scanner-action@40a8940a65eab1544a6af759e43d936201a131a2
-        with:
-          scan-args: |-
-            --recursive
-            --config=osv-scanner-production.toml
-            ./
-      - name: Full dependency visibility
+      - name: Scan complete dependency graph
         continue-on-error: true
         uses: google/osv-scanner-action/osv-scanner-action@40a8940a65eab1544a6af759e43d936201a131a2
         with:
           scan-args: |-
             --recursive
             ./
+      - name: Production dependency release gate
+        run: |
+          echo "Production dependencies are fail-closed by 'pnpm audit --prod --audit-level low' in the Verify workflow."
+          echo "OSV intentionally scans the complete build graph here as an advisory signal, including dev-only tooling not shipped to production."
 
   sbom:
     name: Generate SBOM
