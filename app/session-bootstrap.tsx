@@ -63,7 +63,8 @@ export function SessionBootstrap({ children }: SessionBootstrapProps) {
   }, []);
 
   useEffect(() => {
-    void validateSession();
+    const timer = window.setTimeout(() => void validateSession(), 0);
+    return () => window.clearTimeout(timer);
   }, [validateSession]);
 
   if (state === "ready") return <>{children}</>;
