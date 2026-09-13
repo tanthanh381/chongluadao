@@ -141,13 +141,13 @@ export function PrivilegedMfaGate() {
         code: normalized,
       });
       if (verified.error) throw verified.error;
-      await supabase.auth.refreshSession();
-      setCode("");
-      setEnrollment(null);
-      await inspect();
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.error) throw refreshed.error;
+      // AdminPage may already have observed the pre-MFA 42501 response. A reload
+      // ensures the entire privileged view is reconstructed using the AAL2 JWT.
+      window.location.reload();
     } catch {
       setError("Mã xác thực không hợp lệ hoặc đã hết hạn. Hãy thử mã mới.");
-    } finally {
       setBusy(false);
     }
   }
