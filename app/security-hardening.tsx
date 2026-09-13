@@ -114,13 +114,16 @@ export function PrivilegedMfaGate() {
   }, [adminRoute]);
 
   useEffect(() => {
-    void inspect();
+    const initialCheck = window.setTimeout(() => void inspect(), 0);
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" || event === "MFA_CHALLENGE_VERIFIED") {
         window.setTimeout(() => void inspect(), 0);
       }
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      window.clearTimeout(initialCheck);
+      data.subscription.unsubscribe();
+    };
   }, [inspect]);
 
   async function verify(event: FormEvent) {
@@ -192,7 +195,6 @@ export function PrivilegedMfaGate() {
               maxLength={6}
               value={code}
               onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              autoFocus
             />
             <button type="submit" disabled={busy || code.length !== 6}>
               {busy ? "Đang xác minh…" : "Xác minh và tiếp tục"}
