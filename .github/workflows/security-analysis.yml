@@ -33,7 +33,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Scan lockfiles and source manifests
+      - name: Production dependency gate
+        uses: google/osv-scanner-action/osv-scanner-action@40a8940a65eab1544a6af759e43d936201a131a2
+        with:
+          scan-args: |-
+            --recursive
+            --config=osv-scanner-production.toml
+            ./
+      - name: Full dependency visibility
+        continue-on-error: true
         uses: google/osv-scanner-action/osv-scanner-action@40a8940a65eab1544a6af759e43d936201a131a2
         with:
           scan-args: |-
