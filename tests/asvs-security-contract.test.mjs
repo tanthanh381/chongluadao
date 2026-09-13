@@ -57,7 +57,8 @@ test('browser CSP keeps executable code self-hosted and disables dangerous resou
 
 test('security pipeline includes SAST, SCA and SBOM', () => {
   assert.match(workflow, /CodeQL/);
-  assert.match(workflow, /OSV dependency scan/);
+  assert.match(workflow, /osv-scanner-action/);
+  assert.match(workflow, /pnpm audit --prod --audit-level low/);
   assert.match(workflow, /Generate SBOM/);
   assert.match(workflow, /javascript-typescript/);
   assert.match(workflow, /cyclonedx-json/);
