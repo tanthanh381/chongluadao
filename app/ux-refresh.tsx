@@ -20,6 +20,7 @@ function activate(label: string) {
 export function UxRefresh() {
   const [active, setActive] = useState<PrimaryView | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [guestPromptDismissed, setGuestPromptDismissed] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [utilityOpen, setUtilityOpen] = useState(false);
@@ -41,7 +42,13 @@ export function UxRefresh() {
       requestAnimationFrame(sync);
     };
     const observer = new MutationObserver(schedule);
-    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-current"] });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["aria-current"],
+    });
     sync();
     return () => observer.disconnect();
   }, []);
@@ -97,16 +104,16 @@ export function UxRefresh() {
   return <>
     {topActions && createPortal(<>
       {bannerDismissed && <button className="ux-simulation-chip" onClick={restoreBanner}><span aria-hidden="true">🛡</span> Mô phỏng</button>}
-      {signedIn && <div className="ux-utility-menu"><button className="ux-utility-trigger" aria-expanded={utilityOpen} onClick={() => setUtilityOpen((value) => !value)}>•••</button>{utilityOpen && <div className="ux-utility-popover" role="menu"><button role="menuitem" onClick={() => activate("Dashboard")}>Dashboard</button>{hasAdmin && <button role="menuitem" onClick={() => activate("Quản trị")}>Quản trị</button>}</div>}</div>}
+      {signedIn && <div className="ux-utility-menu"><button className="ux-utility-trigger" aria-expanded={utilityOpen} aria-label="Mở chức năng quản lý" onClick={() => setUtilityOpen((value) => !value)}>•••</button>{utilityOpen && <div className="ux-utility-popover" role="menu"><button role="menuitem" onClick={() => { activate("Dashboard"); setUtilityOpen(false); }}>Dashboard</button>{hasAdmin && <button role="menuitem" onClick={() => { activate("Quản trị"); setUtilityOpen(false); }}>Quản trị</button>}</div>}</div>}
     </>, topActions)}
 
     {banner && !bannerDismissed && createPortal(<button className="ux-banner-close" aria-label="Ẩn lưu ý môi trường mô phỏng" onClick={dismissBanner}>×</button>, banner)}
 
-    {scenarioPanel && createPortal(<div className="ux-scenario-tools"><label><span>Lọc độ khó</span><select defaultValue="Tất cả" onChange={(event) => selectDifficulty(event.target.value)}><option>Tất cả</option><option>Dễ</option><option>Trung bình</option><option>Khó</option><option>Rất khó</option></select></label><button className="ux-random" onClick={() => document.querySelector<HTMLButtonElement>(".random-button")?.click()}><span aria-hidden="true">🎲</span><span>Ngẫu nhiên</span></button></div>, scenarioPanel)}
+    {scenarioPanel && createPortal(<div className="ux-scenario-tools"><label><span>Lọc độ khó</span><select defaultValue="Tất cả" aria-label="Lọc độ khó" onChange={(event) => selectDifficulty(event.target.value)}><option>Tất cả</option><option>Dễ</option><option>Trung bình</option><option>Khó</option><option>Rất khó</option></select></label><button className="ux-random" onClick={() => document.querySelector<HTMLButtonElement>(".random-button")?.click()}><span aria-hidden="true">🎲</span><span>Ngẫu nhiên</span></button></div>, scenarioPanel)}
 
     {statusGrid && createPortal(<div className="ux-status-progress"><span aria-hidden="true">✓</span><span><small>Tiến trình</small><strong>{completed}/{total || "—"}</strong></span></div>, statusGrid)}
 
-    {stage && active === "Thử thách" && createPortal(<><div className="ux-stage-actions"><button className="ux-scenario-trigger" onClick={() => setScenariosOpen(true)}><span aria-hidden="true">☰</span> Danh sách tình huống</button><button className="ux-insight-trigger" onClick={() => setInsightOpen(true)}><span aria-hidden="true">💡</span> Mẹo & tiến trình</button></div>{!signedIn && completed >= 3 && <aside className="ux-guest-conversion" role="note"><div><span aria-hidden="true">🎯</span><span><strong>Bạn đã có tiến trình đáng để lưu</strong><small>Tạo tài khoản để giữ kết quả trên nhiều thiết bị và nhận chứng nhận khi hoàn thành.</small></span></div><div><button className="ux-primary" onClick={openRegistration}>Lưu tiến trình</button><button className="ux-text-button">Tiếp tục với tư cách khách</button></div></aside>}</>, stage)}
+    {stage && active === "Thử thách" && createPortal(<><div className="ux-stage-actions"><button className="ux-scenario-trigger" onClick={() => setScenariosOpen(true)}><span aria-hidden="true">☰</span> Danh sách tình huống</button><button className="ux-insight-trigger" onClick={() => setInsightOpen(true)}><span aria-hidden="true">💡</span> Mẹo & tiến trình</button></div>{!signedIn && completed >= 3 && !guestPromptDismissed && <aside className="ux-guest-conversion" role="note"><div><span aria-hidden="true">🎯</span><span><strong>Bạn đã có tiến trình đáng để lưu</strong><small>Tạo tài khoản để giữ kết quả trên nhiều thiết bị và nhận chứng nhận khi hoàn thành.</small></span></div><div><button className="ux-primary" onClick={openRegistration}>Lưu tiến trình</button><button className="ux-text-button" onClick={() => setGuestPromptDismissed(true)}>Tiếp tục với tư cách khách</button></div></aside>}</>, stage)}
 
     {feedback && createPortal(<div className="ux-learning-moment"><div className="ux-learning-heading"><span aria-hidden="true">{feedbackDanger ? "⚠" : "✓"}</span><strong>{feedbackDanger ? "Dấu hiệu bạn cần ghi nhớ" : "Vì sao cách xử lý này an toàn"}</strong></div>{flags.length > 0 && <ul>{flags.map((flag) => <li key={flag}>{flag}</li>)}</ul>}{tip && <div className="ux-principle"><b>Nguyên tắc áp dụng ngoài đời</b><span>{tip}</span></div>}</div>, feedback)}
 
