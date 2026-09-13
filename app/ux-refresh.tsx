@@ -19,7 +19,10 @@ function activate(label: string) {
 
 export function UxRefresh() {
   const [active, setActive] = useState<PrimaryView | null>(null);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(BANNER_KEY) === "1"; } catch { return false; }
+  });
   const [guestPromptDismissed, setGuestPromptDismissed] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
@@ -27,7 +30,6 @@ export function UxRefresh() {
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    try { setBannerDismissed(localStorage.getItem(BANNER_KEY) === "1"); } catch { /* storage can be unavailable */ }
     const root = document.getElementById("root") ?? document.body;
     let pending = false;
     const sync = () => {
@@ -41,6 +43,10 @@ export function UxRefresh() {
       pending = true;
       requestAnimationFrame(sync);
     };
+    const closeScenarioDrawer = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".scenario-item")) setScenariosOpen(false);
+    };
     const observer = new MutationObserver(schedule);
     observer.observe(root, {
       childList: true,
@@ -49,8 +55,12 @@ export function UxRefresh() {
       attributes: true,
       attributeFilter: ["aria-current"],
     });
-    sync();
-    return () => observer.disconnect();
+    root.addEventListener("click", closeScenarioDrawer);
+    requestAnimationFrame(sync);
+    return () => {
+      observer.disconnect();
+      root.removeEventListener("click", closeScenarioDrawer);
+    };
   }, []);
 
   const app = document.querySelector<HTMLElement>(".app");
@@ -73,12 +83,12 @@ export function UxRefresh() {
     app?.classList.toggle("ux-banner-dismissed", bannerDismissed);
   }, [app, bannerDismissed, insightOpen, scenariosOpen, version]);
 
-  useEffect(() => {
+  const navigate = (label: string) => {
     setInsightOpen(false);
     setScenariosOpen(false);
     setUtilityOpen(false);
-  }, [active]);
-
+    activate(label);
+  };
   const dismissBanner = () => {
     setBannerDismissed(true);
     try { localStorage.setItem(BANNER_KEY, "1"); } catch { /* storage can be unavailable */ }
@@ -104,7 +114,7 @@ export function UxRefresh() {
   return <>
     {topActions && createPortal(<>
       {bannerDismissed && <button className="ux-simulation-chip" onClick={restoreBanner}><span aria-hidden="true">🛡</span> Mô phỏng</button>}
-      {signedIn && <div className="ux-utility-menu"><button className="ux-utility-trigger" aria-expanded={utilityOpen} aria-label="Mở chức năng quản lý" onClick={() => setUtilityOpen((value) => !value)}>•••</button>{utilityOpen && <div className="ux-utility-popover" role="menu"><button role="menuitem" onClick={() => { activate("Dashboard"); setUtilityOpen(false); }}>Dashboard</button>{hasAdmin && <button role="menuitem" onClick={() => { activate("Quản trị"); setUtilityOpen(false); }}>Quản trị</button>}</div>}</div>}
+      {signedIn && <div className="ux-utility-menu"><button className="ux-utility-trigger" aria-expanded={utilityOpen} aria-label="Mở chức năng quản lý" onClick={() => setUtilityOpen((value) => !value)}>•••</button>{utilityOpen && <div className="ux-utility-popover" role="menu"><button role="menuitem" onClick={() => navigate("Dashboard")}>Dashboard</button>{hasAdmin && <button role="menuitem" onClick={() => navigate("Quản trị")}>Quản trị</button>}</div>}</div>}
     </>, topActions)}
 
     {banner && !bannerDismissed && createPortal(<button className="ux-banner-close" aria-label="Ẩn lưu ý môi trường mô phỏng" onClick={dismissBanner}>×</button>, banner)}
@@ -117,9 +127,9 @@ export function UxRefresh() {
 
     {feedback && createPortal(<div className="ux-learning-moment"><div className="ux-learning-heading"><span aria-hidden="true">{feedbackDanger ? "⚠" : "✓"}</span><strong>{feedbackDanger ? "Dấu hiệu bạn cần ghi nhớ" : "Vì sao cách xử lý này an toàn"}</strong></div>{flags.length > 0 && <ul>{flags.map((flag) => <li key={flag}>{flag}</li>)}</ul>}{tip && <div className="ux-principle"><b>Nguyên tắc áp dụng ngoài đời</b><span>{tip}</span></div>}</div>, feedback)}
 
-    {knowledgeHero && createPortal(<button className="ux-practice-cta" onClick={() => activate("Thực hành tương tác")}><span aria-hidden="true">▶</span> Luyện nhận diện phishing</button>, knowledgeHero)}
+    {knowledgeHero && createPortal(<button className="ux-practice-cta" onClick={() => navigate("Thực hành tương tác")}><span aria-hidden="true">▶</span> Luyện nhận diện phishing</button>, knowledgeHero)}
 
-    <nav className="ux-bottom-nav" aria-label="Điều hướng di động">{PRIMARY_VIEWS.map((item) => <button key={item} className={active === item ? "active" : ""} aria-current={active === item ? "page" : undefined} onClick={() => activate(item)}><span aria-hidden="true">{{ "Thử thách": "◇", "Cẩm nang": "▤", "Tin tức": "◫", "Thành tích": "★" }[item]}</span><small>{item}</small></button>)}</nav>
+    <nav className="ux-bottom-nav" aria-label="Điều hướng di động">{PRIMARY_VIEWS.map((item) => <button key={item} className={active === item ? "active" : ""} aria-current={active === item ? "page" : undefined} onClick={() => navigate(item)}><span aria-hidden="true">{{ "Thử thách": "◇", "Cẩm nang": "▤", "Tin tức": "◫", "Thành tích": "★" }[item]}</span><small>{item}</small></button>)}</nav>
 
     {scenariosOpen && <><button className="ux-drawer-backdrop" aria-label="Đóng danh sách tình huống" onClick={() => setScenariosOpen(false)} /><button className="ux-drawer-close ux-scenario-close" aria-label="Đóng danh sách tình huống" onClick={() => setScenariosOpen(false)}>×</button></>}
     {insightOpen && <><button className="ux-drawer-backdrop ux-insight-backdrop" aria-label="Đóng bảng mẹo và tiến trình" onClick={() => setInsightOpen(false)} /><button className="ux-drawer-close ux-insight-close" aria-label="Đóng bảng mẹo và tiến trình" onClick={() => setInsightOpen(false)}>×</button></>}
